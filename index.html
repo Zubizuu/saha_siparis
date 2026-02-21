@@ -562,6 +562,12 @@ select option{background:var(--surface2)}
         <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Aynı dosyada farklı sekme olabilir</div>
       </div>
 
+      <div class="fg" id="gs-users-wrap">
+        <label>👤 Kullanıcılar Sayfası URL</label>
+        <input type="url" id="gs-users-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem">
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Sütunlar: <strong>KullaniciID | Sifre | Ad | Rol</strong> (Rol: admin veya user) — "Bağlantıya sahip herkes okuyabilir" olmalı</div>
+      </div>
+
       <div class="divider"></div>
       <div class="card-title" style="margin-bottom:8px">📋 Sipariş Kaydı (Apps Script)</div>
       <div class="alert ai" style="font-size:0.73rem;margin-bottom:10px">
@@ -792,34 +798,76 @@ let currentPDFDoc=null, currentPDFBlob=null;
 //  LOGIN
 // ═══════════════════════════════════════
 function hashPw(pw){
-  // Tum karakterleri (Turkce dahil) guvenli sekilde encode et
-  try{
-    return btoa(encodeURIComponent(pw).replace(/%([0-9A-F]{2})/gi,function(m,h){return String.fromCharCode(parseInt(h,16));}));
-  }catch(e){
-    // Fallback: her karakterin char kodunu kullan
-    return Array.from(pw).map(c=>c.charCodeAt(0).toString(16).padStart(4,'0')).join('');
-  }
+  // Sade ve evrensel: her karakteri hex'e çevir
+  return Array.from(String(pw)).map(c=>c.charCodeAt(0).toString(16).padStart(4,'0')).join('');
 }
 function getUsers(){
   try{const s=localStorage.getItem('sys_users');return s?JSON.parse(s):users;}catch(e){return users;}
 }
-function doLogin(){
-  const allUsers=getUsers();
+
+// Sheets'ten kullanıcı listesini çek
+async function fetchUsersFromSheets(){
+  const url=localStorage.getItem('gs_users_url')||'';
+  if(!url)return null;
+  try{
+    const csv=await fetchSheetCSV(url);
+    const rows=parseCSV(csv);
+    // Sütun adlarını esnek tanı
+    return rows.map(r=>{
+      const keys=Object.keys(r);
+      const id=(r.KullaniciID||r.ID||r.id||r.kullaniciid||r[keys[0]]||'').trim();
+      const pw=(r.Sifre||r.sifre||r.Şifre||r.şifre||r[keys[1]]||'').trim();
+      const name=(r.Ad||r.ad||r.Name||r.name||r[keys[2]]||id).trim();
+      const role=(r.Rol||r.rol||r.Role||r.role||r[keys[3]]||'user').trim().toLowerCase();
+      if(!id||!pw)return null;
+      return{id,pw:hashPw(pw),name,role};
+    }).filter(Boolean);
+  }catch(e){
+    console.warn('Kullanıcı Sheets hatası:',e.message);
+    return null;
+  }
+}
+
+async function doLogin(){
+  const loginBtn=document.querySelector('.btn-login');
+  if(loginBtn)loginBtn.disabled=true;
   const id=document.getElementById('l-id').value.trim();
   const pw=document.getElementById('l-pw').value;
-  const pwHash=hashPw(pw);
-  // Her iki formati da kabul et (eski btoa + yeni hashPw)
-  let pwBtoa='';try{pwBtoa=btoa(pw);}catch(e){}
-  const u=allUsers.find(x=>x.id===id&&(x.pw===pwHash||x.pw===pwBtoa));
+  if(!id||!pw){
+    document.getElementById('l-err').textContent='Kullanıcı ID ve şifre gerekli.';
+    document.getElementById('l-err').style.display='block';
+    if(loginBtn)loginBtn.disabled=false;
+    return;
+  }
   const errEl=document.getElementById('l-err');
+  errEl.style.display='none';
+
+  // Önce Google Sheets'ten dene
+  const sheetUsers=await fetchUsersFromSheets();
+  let allUsers;
+  if(sheetUsers&&sheetUsers.length){
+    // Sheets başarılıysa local'e yedekle
+    allUsers=sheetUsers;
+    localStorage.setItem('sys_users',JSON.stringify(allUsers));
+    users=allUsers;
+  } else {
+    // Sheets yoksa veya hata varsa localStorage fallback
+    allUsers=getUsers();
+  }
+
+  const pwHash=hashPw(pw);
+  const u=allUsers.find(x=>x.id===id&&x.pw===pwHash);
+  if(loginBtn)loginBtn.disabled=false;
   if(!u){
+    const byId=allUsers.find(x=>x.id===id);
+    errEl.textContent=byId?'Şifre hatalı.':'Kullanıcı bulunamadı.';
     errEl.style.display='block';
     document.getElementById('l-pw').value='';
     return;
   }
-  users=allUsers;
   loginOK(u);
 }
+
 function loginOK(u){
   currentUser=u;localStorage.setItem('session',u.id);
   document.getElementById('login-screen').style.display='none';
@@ -1080,8 +1128,10 @@ function saveAndSyncSheets(){
     const btn=document.getElementById('sh-push-btn');
     if(btn)btn.style.display='';
   }
+  const usersUrl=document.getElementById('gs-users-url')?.value.trim()||'';
+  if(usersUrl)localStorage.setItem('gs_users_url',usersUrl);
   if(stokUrl||cariUrl)syncFromSheets(true);
-  else alert('✅ Apps Script URL kaydedildi! Artık siparişler otomatik Sheets\'e gönderilecek.');
+  else alert('✅ Ayarlar kaydedildi!');
 }
 
 async function syncFromSheets(manual=false){
@@ -1155,10 +1205,13 @@ function setGsStatus(type,txt,sub){
 function loadSheetsSettings(){
   const su=localStorage.getItem('gs_stok_url')||'';
   const cu=localStorage.getItem('gs_cari_url')||'';
+  const uu=localStorage.getItem('gs_users_url')||'';
   const el1=document.getElementById('gs-stok-url');
   const el2=document.getElementById('gs-cari-url');
+  const el3=document.getElementById('gs-users-url');
   if(el1&&su)el1.value=su;
   if(el2&&cu)el2.value=cu;
+  if(el3&&uu)el3.value=uu;
   // Sadece admin URL görsün
   const isAdmin=currentUser?.role==='admin';
   if(document.getElementById('gs-stok-wrap'))document.getElementById('gs-stok-wrap').style.display=isAdmin?'':'none';
@@ -2131,10 +2184,13 @@ function exportHistory(){exportExcelOzet();}
 // ═══════════════════════════════════════
 function renderUserList(){
   const el=document.getElementById('u-list');if(!el)return;
-  el.innerHTML=users.map(u=>`<div class="ur">
+  const sheetsUrl=localStorage.getItem('gs_users_url')||'';
+  const sheetsBadge=sheetsUrl?`<div style="font-size:0.72rem;color:var(--success);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;margin-bottom:10px">☁️ Kullanıcılar Google Sheets'ten yönetiliyor — değişiklik için Sheets'i düzenleyin</div>`:'';
+  const list=users.length?users.map(u=>`<div class="ur">
     <div><div class="ur-id">${u.id} <span class="badge ${u.role==='admin'?'ba':'bu'}">${u.role==='admin'?'Admin':'Kullanıcı'}</span></div><div class="ur-role">${u.name}</div></div>
-    <div class="flex g8">${u.id!==currentUser?.id?`<button class="btn btn-secondary btn-sm" onclick="editUser('${u.id}')">✏️</button><button class="btn btn-danger btn-xs" onclick="delUser('${u.id}')">🗑</button>`:''}</div>
-  </div>`).join('');
+    <div class="flex g8">${(!sheetsUrl&&u.id!==currentUser?.id)?`<button class="btn btn-secondary btn-sm" onclick="editUser('${u.id}')">✏️</button><button class="btn btn-danger btn-xs" onclick="delUser('${u.id}')">🗑</button>`:''}</div>
+  </div>`).join(''):'<div style="color:var(--muted);font-size:0.82rem;padding:8px">Henüz kullanıcı yok</div>';
+  el.innerHTML=sheetsBadge+list;
 }
 function openAddUser(){editingUid=null;document.getElementById('mu-id').value='';document.getElementById('mu-id').disabled=false;document.getElementById('mu-pw').value='';document.getElementById('mu-n').value='';document.getElementById('mu-r').value='user';document.getElementById('u-modal').classList.add('open');}
 function editUser(id){const u=users.find(x=>x.id===id);if(!u)return;editingUid=id;document.getElementById('mu-id').value=u.id;document.getElementById('mu-id').disabled=true;document.getElementById('mu-pw').value='';document.getElementById('mu-n').value=u.name;document.getElementById('mu-r').value=u.role;document.getElementById('u-modal').classList.add('open');}
@@ -2142,7 +2198,12 @@ function closeAddUser(){document.getElementById('u-modal').classList.remove('ope
 function saveUser(){
   const id=document.getElementById('mu-id').value.trim(),pw=document.getElementById('mu-pw').value,nm=document.getElementById('mu-n').value.trim(),role=document.getElementById('mu-r').value;
   if(!id||!nm){alert('ID ve Ad zorunlu!');return;}
-  // Her zaman localStorage'dan guncel listeyi al
+  const sheetsUrl=localStorage.getItem('gs_users_url')||'';
+  if(sheetsUrl){
+    alert('⚠️ Kullanıcılar Google Sheets ile yönetiliyor.\nLütfen kullanıcıları doğrudan Sheets üzerinden ekleyin/düzenleyin.');
+    closeAddUser();
+    return;
+  }
   users=getUsers();
   if(editingUid){
     const u=users.find(x=>x.id===editingUid);
