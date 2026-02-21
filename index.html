@@ -554,11 +554,10 @@ select option{background:var(--surface2)}
         <div id="u-count-badge" style="font-size:0.7rem;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:3px 10px;border-radius:20px">0 kullanıcı</div>
       </div>
 
-      <!-- Sheets sync bilgi kutusu -->
+      <!-- Apps Script senkron bilgisi (sadece script URL varsa görünür) -->
       <div id="u-sheets-info" style="display:none;margin-bottom:10px">
         <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:9px;padding:10px 13px;font-size:0.76rem;color:#22c55e">
-          ☁️ <strong>Google Sheets bağlı</strong> — Kullanıcılar Sheets'ten yükleniyor.<br>
-          <span style="color:var(--muted)">Yeni kullanıcı ekleyip "Sheets'e Yaz" ile senkronize edebilirsiniz.</span>
+          ☁️ <strong>Apps Script bağlı</strong> — Kullanıcılar kaydedilince tüm cihazlara otomatik yayılır.
         </div>
       </div>
 
@@ -566,10 +565,10 @@ select option{background:var(--surface2)}
       <div class="divider"></div>
       <div class="flex g8" style="flex-wrap:wrap">
         <button class="btn btn-secondary btn-sm" style="flex:1" onclick="openAddUser()">+ Kullanıcı Ekle</button>
-        <button class="btn btn-primary btn-sm" style="flex:1" id="u-sheets-sync-btn" onclick="syncUsersFromSheets()" title="Google Sheets'ten kullanıcıları yeniden yükle">🔄 Sheets'ten Yükle</button>
+        <button class="btn btn-primary btn-sm" style="flex:1" id="u-sheets-sync-btn" onclick="syncUsersFromSheets()">🔄 Yenile</button>
       </div>
-      <div class="mt8">
-        <button class="btn btn-success btn-sm" style="width:100%" id="u-sheets-push-btn" onclick="pushUsersToSheets()">☁️ Sheets'e Yaz — Tüm Kullanıcılar</button>
+      <div class="mt8" id="u-sheets-push-wrap" style="display:none">
+        <button class="btn btn-success btn-sm" style="width:100%" id="u-sheets-push-btn" onclick="pushUsersToSheets()">☁️ Tüm Kullanıcıları Senkronize Et</button>
       </div>
       <div id="u-sync-result" style="display:none;margin-top:8px;font-size:0.76rem;padding:8px 12px;border-radius:8px"></div>
     </div>
@@ -614,19 +613,13 @@ select option{background:var(--surface2)}
         <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Aynı dosyada farklı sekme olabilir — sekme URL'sini kopyalayın</div>
       </div>
 
-      <!-- KULLANICI URL -->
+      <!-- KULLANICI YÖNETİMİ — Apps Script üzerinden -->
       <div class="fg" id="gs-users-wrap">
-        <label>👤 Kullanıcılar Sayfası URL</label>
-        <div style="display:flex;gap:6px">
-          <input type="url" id="gs-users-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1">
-          <button class="btn btn-secondary btn-xs" onclick="testAndSyncSheet('users')" title="Test et ve çek" style="flex-shrink:0;white-space:nowrap">🔄 Çek</button>
+        <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:9px;padding:10px 13px;font-size:0.76rem;color:#22c55e;margin-bottom:8px">
+          👤 <strong>Kullanıcılar Apps Script üzerinden yönetilir.</strong><br>
+          <span style="color:var(--muted)">Aşağıdaki Apps Script URL'si girildiğinde kullanıcılar otomatik senkronize olur.</span>
         </div>
         <div id="gs-users-status" style="display:none;font-size:0.72rem;margin-top:4px;padding:5px 9px;border-radius:6px"></div>
-        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">
-          Sütunlar: <strong>KullaniciID | Sifre | Ad | Rol</strong> (Rol: admin veya user) · Şifreler düz metin yazılır
-        </div>
-        <button class="btn btn-secondary btn-xs mt8" onclick="createUserSheetsTemplate()" style="width:100%">⬇ Örnek Kullanıcı Şablonu İndir</button>
-        <button class="btn btn-secondary btn-xs mt8" onclick="debugSheetRaw('users')" style="width:100%;color:var(--accent)">🔍 Ham CSV İçeriğini Göster (Debug)</button>
       </div>
 
       <div class="divider"></div>
@@ -847,37 +840,28 @@ let currentPDFDoc=null, currentPDFBlob=null;
 //  INIT
 // ═══════════════════════════════════════
 (function(){
-  // Şifre: btoa(düz_metin)
+  // Varsayılan kullanıcılar (hiç kayıt yoksa)
   const DEFAULT=[
     {id:'admin',pw:btoa('admin123'),name:'Yönetici',role:'admin'},
     {id:'satis1',pw:btoa('1234'),name:'Satış 1',role:'user'},
   ];
-  
-  // Sheets kullanıcı URL'si varsa localStorage'daki eski kullanıcıları atla
-  // (Sheets verisi login sırasında veya autoSync'te çekilecek)
-  const hasUsersSheet=!!localStorage.getItem('gs_users_url');
-  
+
   const su=localStorage.getItem('sys_users');
   if(su){
     try{
       const parsed=JSON.parse(su);
-      // Eski hex formatı temizle
       const isHex=parsed.some(u=>u.pw&&u.pw.length>30&&/^[0-9a-f]+$/.test(u.pw));
       if(isHex||!parsed.length){
         localStorage.removeItem('sys_users');
-        users=hasUsersSheet?[]:DEFAULT;
-        if(!hasUsersSheet)localStorage.setItem('sys_users',JSON.stringify(users));
+        users=[...DEFAULT];
+        localStorage.setItem('sys_users',JSON.stringify(users));
       } else {
         users=parsed;
       }
-    }catch(e){
-      users=hasUsersSheet?[]:DEFAULT;
-      if(!hasUsersSheet)localStorage.setItem('sys_users',JSON.stringify(users));
-    }
+    }catch(e){users=[...DEFAULT];localStorage.setItem('sys_users',JSON.stringify(users));}
   } else {
-    // Sheets URL varsa DEFAULT kullanıcıları yazma — Sheets'ten gelecek
-    users=hasUsersSheet?[]:DEFAULT;
-    if(!hasUsersSheet)localStorage.setItem('sys_users',JSON.stringify(users));
+    users=[...DEFAULT];
+    localStorage.setItem('sys_users',JSON.stringify(users));
   }
   const sd=localStorage.getItem('stokData');if(sd)stokData=JSON.parse(sd);
   const cd=localStorage.getItem('cariData');if(cd)cariData=JSON.parse(cd);
@@ -916,31 +900,23 @@ function getUsers(){
   }catch(e){return users.length?users:[];}
 }
 
-// Sheets'ten kullanıcı listesini çek
+// Apps Script üzerinden kullanıcıları çek
 async function fetchUsersFromSheets(){
-  const url=localStorage.getItem('gs_users_url')||'';
-  if(!url)return null;
+  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
+  if(!scriptUrl)return null;
   try{
-    const csv=await fetchSheetCSV(url);
-    const rows=parseCSV(csv);
-    if(!rows.length)return null;
-    return rows.map(r=>{
-      const normKey2=k=>k.trim().toLowerCase()
-        .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
-        .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
-        .replace(/[^a-z0-9]/g,'');
-      const norm={};
-      Object.keys(r).forEach(k=>{ norm[normKey2(k)]=r[k]; });
-      const vals2=Object.values(r);
-      const id=(norm['kullaniciid']||norm['id']||norm['userid']||norm['kullanici']||vals2[0]||'').toString().trim();
-      const pw=(norm['sifre']||norm['password']||norm['pw']||vals2[1]||'').toString().trim();
-      const name=(norm['ad']||norm['adsoyad']||norm['name']||vals2[2]||id).toString().trim();
-      const role=(norm['rol']||norm['role']||vals2[3]||'user').toString().trim().toLowerCase();
-      if(!id||!pw)return null;
-      return{id,pw:hashPw(pw),name:name||id,role:role==='admin'?'admin':'user'};
-    }).filter(Boolean);
+    const resp=await fetch(scriptUrl+'?action=getUsers',{cache:'no-store'});
+    if(!resp.ok)return null;
+    const data=await resp.json();
+    if(!data||!data.users||!data.users.length)return null;
+    return data.users.map(u=>({
+      id:String(u.id||'').trim(),
+      pw:hashPw(String(u.pw||u.sifre||'')),
+      name:String(u.name||u.ad||u.id||'').trim(),
+      role:(String(u.role||u.rol||'user')).toLowerCase()==='admin'?'admin':'user'
+    })).filter(u=>u.id&&u.pw);
   }catch(e){
-    console.warn('Kullanıcı Sheets hatası:',e.message);
+    console.warn('Apps Script kullanıcı hatası:',e.message);
     return null;
   }
 }
@@ -948,32 +924,22 @@ async function fetchUsersFromSheets(){
 function doLogin(){
   const errEl=document.getElementById('l-err');
   errEl.style.display='none';
-  
   const id=document.getElementById('l-id').value.trim();
   const pw=document.getElementById('l-pw').value;
+  if(!id||!pw){errEl.textContent='Kullanıcı ID ve şifre gerekli.';errEl.style.display='block';return;}
   
-  if(!id||!pw){
-    errEl.textContent='Kullanıcı ID ve şifre gerekli.';
-    errEl.style.display='block';
-    return;
-  }
-
-  // Önce Sheets URL varsa Sheets'ten çekip giriş dene
-  const sheetsUrl=localStorage.getItem('gs_users_url')||'';
-  if(sheetsUrl){
-    errEl.textContent='⏳ Kullanıcılar kontrol ediliyor...';
+  // Apps Script bağlıysa önce oradan güncel listeyi çek, sonra giriş dene
+  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
+  if(scriptUrl){
+    errEl.textContent='⏳ Kontrol ediliyor...';
     errEl.style.cssText='display:block;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--accent)';
-    fetchUsersFromSheets().then(sheetUsers=>{
-      if(sheetUsers&&sheetUsers.length){
-        // Sheets kullanıcılarını kaydet
-        localStorage.setItem('sys_users',JSON.stringify(sheetUsers));
-        users=sheetUsers;
+    fetchUsersFromScript(scriptUrl).then(remoteUsers=>{
+      if(remoteUsers&&remoteUsers.length){
+        users=remoteUsers;
+        localStorage.setItem('sys_users',JSON.stringify(users));
       }
       _tryLogin(id,pw,errEl);
-    }).catch(()=>{
-      // Sheets başarısız → local ile dene
-      _tryLogin(id,pw,errEl);
-    });
+    }).catch(()=>_tryLogin(id,pw,errEl));
   } else {
     _tryLogin(id,pw,errEl);
   }
@@ -983,17 +949,14 @@ function _tryLogin(id,pw,errEl){
   errEl.style.cssText='display:none';
   const allUsers=getUsers();
   const pwHash=btoa(pw);
-  
   const u=allUsers.find(x=>{
     if(x.id!==id)return false;
-    try{
-      return x.pw===pwHash || x.pw===btoa(unescape(encodeURIComponent(pw)));
-    }catch(e){return x.pw===pwHash;}
+    try{return x.pw===pwHash||x.pw===btoa(unescape(encodeURIComponent(pw)));}
+    catch(e){return x.pw===pwHash;}
   });
-  
   if(!u){
     const byId=allUsers.find(x=>x.id===id);
-    errEl.textContent=byId?'Şifre hatalı.':'Kullanıcı bulunamadı. Sheets bağlıysa ağ bağlantısını kontrol edin.';
+    errEl.textContent=byId?'Şifre hatalı.':'Kullanıcı bulunamadı.';
     errEl.style.cssText='display:block';
     document.getElementById('l-pw').value='';
     const rw=document.getElementById('l-reset-wrap');
@@ -1006,15 +969,7 @@ function _tryLogin(id,pw,errEl){
 function loginOK(u){
   currentUser=u;
   localStorage.setItem('session',u.id);
-  // Aktif kullanıcıyı users listesinde güncelle (Sheets yoksa)
-  if(!localStorage.getItem('gs_users_url')){
-    const allU=getUsers();
-    if(!allU.find(x=>x.id===u.id)){
-      allU.push(u);
-      localStorage.setItem('sys_users',JSON.stringify(allU));
-    }
-    users=getUsers();
-  }
+  users=getUsers();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-hdr').style.display='flex';
   document.getElementById('app-main').style.display='block';
@@ -1023,8 +978,8 @@ function loginOK(u){
   document.getElementById('u-mgmt').style.display=u.role==='admin'?'block':'none';
   applyFirma();renderHistory();updateStats();updateDataStatus();
   loadSheetsSettings();
-  // autoSync: stok/cari + kullanıcıları arka planda çek
-  autoSync().then(()=>renderUserList()).catch(()=>renderUserList());
+  renderUserList();
+  autoSync(); // stok + cari arka planda
 }
 function doLogout(){localStorage.removeItem('session');closeCamera();location.reload();}
 
@@ -1037,7 +992,7 @@ function goPage(n,btn){
   document.getElementById('page-'+n).classList.add('active');
   btn.classList.add('active');
   if(n==='gecmis'){renderHistory();updateStats();}
-  if(n==='ayarlar'){loadSheetsSettings();if(localStorage.getItem('gs_users_url'))syncUsersFromSheets();}
+  if(n==='ayarlar'){loadSheetsSettings();}
   if(n==='stoklar'){renderStokList();}
   if(n==='cariler'){renderCariList();}
   if(n==='siparis'){initSiparisFilters();}
@@ -1296,7 +1251,6 @@ function saveAndSyncSheets(){
     const btn=document.getElementById('sh-push-btn');
     if(btn)btn.style.display='';
   }
-  if(usersUrl)localStorage.setItem('gs_users_url',usersUrl);
   syncAllFromSheets();
 }
 
@@ -1304,15 +1258,14 @@ function saveAndSyncSheets(){
 async function syncAllFromSheets(){
   const stokUrl=localStorage.getItem('gs_stok_url')||'';
   const cariUrl=localStorage.getItem('gs_cari_url')||'';
-  const usersUrl=localStorage.getItem('gs_users_url')||'';
-  if(!stokUrl&&!cariUrl&&!usersUrl){
+  if(!stokUrl&&!cariUrl){
     alert('Önce Google Sheets URL\'lerini kaydedin.');
     return;
   }
   const promises=[];
   if(stokUrl)promises.push(testAndSyncSheet('stok',false));
   if(cariUrl)promises.push(testAndSyncSheet('cari',false));
-  if(usersUrl)promises.push(testAndSyncSheet('users',false));
+
   await Promise.all(promises);
   const parts=[];
   if(stokData.length)parts.push(stokData.length+' ürün');
@@ -1324,9 +1277,9 @@ async function syncAllFromSheets(){
 
 // Tek bir Sheets kaynağını test et ve çek
 async function testAndSyncSheet(type, showAlert=true){
-  const urlMap={stok:'gs_stok_url',cari:'gs_cari_url',users:'gs_users_url'};
-  const inputMap={stok:'gs-stok-url',cari:'gs-cari-url',users:'gs-users-url'};
-  const statusMap={stok:'gs-stok-status',cari:'gs-cari-status',users:'gs-users-status'};
+  const urlMap={stok:'gs_stok_url',cari:'gs_cari_url'};
+  const inputMap={stok:'gs-stok-url',cari:'gs-cari-url'};
+  const statusMap={stok:'gs-stok-status',cari:'gs-cari-status'};
 
   // Input'taki değeri de dene (henüz kaydedilmemişse)
   const inputEl=document.getElementById(inputMap[type]);
@@ -1377,14 +1330,15 @@ async function testAndSyncSheet(type, showAlert=true){
       if(showAlert)alert(`✅ ${parsed.length} cari Sheets'ten yüklendi!`);
     }
     else if(type==='users'){
-      // Sütun normalize
+      // Kullanıcılar artık Apps Script üzerinden yönetilir
+      // Bu yol sadece doğrudan CSV'den denenirse çalışır (fallback)
       const normKey=k=>k.trim().toLowerCase()
         .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
         .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
         .replace(/\s+/g,'').replace(/[^a-z0-9]/g,'');
       const colMap={};
-      if(rows.length>0)Object.keys(rows[0]).forEach(k=>{ colMap[normKey(k)]=k; });
-      const cols=Object.keys(rows[0]);
+      if(rows&&rows.length>0)Object.keys(rows[0]).forEach(k=>{ colMap[normKey(k)]=k; });
+      const cols=rows&&rows.length?Object.keys(rows[0]):[];
       const getCol=(row,candidates,fallbackIdx)=>{
         for(const c of candidates){
           const real=colMap[c];
@@ -1392,7 +1346,7 @@ async function testAndSyncSheet(type, showAlert=true){
         }
         return String(row[cols[fallbackIdx]]||'').trim();
       };
-      const loaded=rows.map((r,i)=>{
+      const loaded=(rows||[]).map((r,i)=>{
         const id=getCol(r,['kullaniciid','userid','id','kullanici','kullaniciad'],0);
         const pw=getCol(r,['sifre','password','pw','parola'],1);
         const name=getCol(r,['ad','adsoyad','name','isim','tamad'],2)||id;
@@ -1403,14 +1357,14 @@ async function testAndSyncSheet(type, showAlert=true){
       }).filter(Boolean);
 
       if(!loaded.length){
-        setStatus(false,`Kullanıcı yüklenemedi. Sütunlar: ${Object.keys(rows[0]).join(', ')} — Beklenen: KullaniciID | Sifre | Ad | Rol`);
+        setStatus(false,`Kullanıcı yüklenemedi. Sütunlar: ${rows&&rows[0]?Object.keys(rows[0]).join(', '):'(boş)'} — Beklenen: KullaniciID | Sifre | Ad | Rol`);
         return;
       }
       users=loaded;
       localStorage.setItem('sys_users',JSON.stringify(users));
       renderUserList();
       setStatus(true,`${loaded.length} kullanıcı yüklendi`);
-      if(showAlert)alert(`✅ ${loaded.length} kullanıcı Sheets'ten yüklendi!`);
+      if(showAlert)alert(`✅ ${loaded.length} kullanıcı yüklendi!`);
     }
   }catch(e){
     setStatus(false,e.message);
@@ -1455,15 +1409,13 @@ function setGsStatus(type,txt,sub){
 function loadSheetsSettings(){
   const su=localStorage.getItem('gs_stok_url')||'';
   const cu=localStorage.getItem('gs_cari_url')||'';
-  const uu=localStorage.getItem('gs_users_url')||'';
+  const uu=''; // kullanıcılar artık Apps Script üzerinden
   const ou=localStorage.getItem('gs_orders_url')||'';
   const el1=document.getElementById('gs-stok-url');
   const el2=document.getElementById('gs-cari-url');
-  const el3=document.getElementById('gs-users-url');
   const el4=document.getElementById('gs-orders-url');
   if(el1&&su)el1.value=su;
   if(el2&&cu)el2.value=cu;
-  if(el3&&uu)el3.value=uu;
   if(el4&&ou)el4.value=ou;
 
   // Tek tek durum göster
@@ -1507,25 +1459,20 @@ function loadSheetsSettings(){
 function showManualUpload(){document.getElementById('manual-upload-card').style.display='block';}
 function hideManualUpload(){document.getElementById('manual-upload-card').style.display='none';}
 
-// Sayfa açılışında otomatik sync (sadece URL kayıtlıysa, 10 dakikada bir)
+// Sayfa açılışında otomatik sync — sadece stok & cari (10 dk'da bir)
 async function autoSync(){
   const stokUrl=localStorage.getItem('gs_stok_url')||'';
   const cariUrl=localStorage.getItem('gs_cari_url')||'';
-  const usersUrl=localStorage.getItem('gs_users_url')||'';
-  if(!stokUrl&&!cariUrl&&!usersUrl)return;
+  if(!stokUrl&&!cariUrl)return;
   const lastT=Math.max(
     Number(localStorage.getItem('gs_stok_time')||0),
     Number(localStorage.getItem('gs_cari_time')||0)
   );
   const TEN_MIN=10*60*1000;
-  const needsSync=Date.now()-lastT>TEN_MIN;
+  if(Date.now()-lastT<TEN_MIN)return;
   const promises=[];
-  if(needsSync){
-    if(stokUrl)promises.push(testAndSyncSheet('stok',false));
-    if(cariUrl)promises.push(testAndSyncSheet('cari',false));
-  }
-  // Kullanıcıları her zaman çek (hafif, kritik)
-  if(usersUrl)promises.push(testAndSyncSheet('users',false));
+  if(stokUrl)promises.push(testAndSyncSheet('stok',false));
+  if(cariUrl)promises.push(testAndSyncSheet('cari',false));
   if(promises.length)await Promise.all(promises);
 }
 
@@ -2486,23 +2433,22 @@ function delOrder(i){if(!confirm('Silinsin mi?'))return;orderHistory.splice(i,1)
 function exportHistory(){exportExcelOzet();}
 
 // ═══════════════════════════════════════
-//  KULLANICI YÖNETİMİ
+//  KULLANICI YÖNETİMİ (Panel içi)
 // ═══════════════════════════════════════
 function renderUserList(){
   const el=document.getElementById('u-list');if(!el)return;
-  const sheetsUrl=localStorage.getItem('gs_users_url')||'';
-  // Sheets bağlı ise bilgi kutusunu göster
+  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
   const infoBox=document.getElementById('u-sheets-info');
-  if(infoBox)infoBox.style.display=sheetsUrl?'block':'none';
+  if(infoBox)infoBox.style.display=scriptUrl?'block':'none';
   const pushBtn=document.getElementById('u-sheets-push-btn');
-  if(pushBtn)pushBtn.style.display=sheetsUrl?'':'none';
-  const sheetsBadge=''; // artık yukarıda kutu var
+  if(pushBtn)pushBtn.style.display=scriptUrl?'':'none';
+  const pushWrap=document.getElementById('u-sheets-push-wrap');if(pushWrap)pushWrap.style.display=scriptUrl?'block':'none';
   const allU=getUsers();
   const list=allU.length?allU.map(u=>`<div class="ur">
     <div><div class="ur-id">${u.id} <span class="badge ${u.role==='admin'?'ba':'bu'}">${u.role==='admin'?'Admin':'Kullanıcı'}</span></div><div class="ur-role">${u.name}</div></div>
     <div class="flex g8">${u.id!==currentUser?.id?`<button class="btn btn-secondary btn-sm" onclick="editUser('${u.id}')">✏️</button><button class="btn btn-danger btn-xs" onclick="delUser('${u.id}')">🗑</button>`:''}</div>
   </div>`).join(''):'<div style="color:var(--muted);font-size:0.82rem;padding:8px">Henüz kullanıcı yok</div>';
-  el.innerHTML=sheetsBadge+list;
+  el.innerHTML=list;
   const badge=document.getElementById('u-count-badge');
   if(badge)badge.textContent=allU.length+' kullanıcı';
 }
@@ -2519,170 +2465,132 @@ function saveUser(){
   } else {
     if(!pw){alert('Şifre zorunlu!');return;}
     if(users.find(u=>u.id===id)){alert('Bu ID zaten var!');return;}
-    users.push({id:id,pw:hashPw(pw),name:nm,role:role});
+    users.push({id,pw:hashPw(pw),name:nm,role});
   }
   localStorage.setItem('sys_users',JSON.stringify(users));
   renderUserList();
   closeAddUser();
-  // Sheets bağlıysa push seçeneği sun
-  const sheetsUrl2=localStorage.getItem('gs_users_url')||'';
-  if(sheetsUrl2){
-    const doIt=confirm('Kullanıcı kaydedildi!\nGoogle Sheets\'e de yazılsın mı?');
-    if(doIt)pushUsersToSheets();
-  }
+  // Apps Script bağlıysa otomatik senkronize et
+  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
+  if(scriptUrl) pushUsersToScript(scriptUrl);
 }
 function delUser(id){
   if(!confirm(id+' silinsin mi?'))return;
   users=getUsers().filter(u=>u.id!==id);
   localStorage.setItem('sys_users',JSON.stringify(users));
   renderUserList();
-  const sheetsUrl2=localStorage.getItem('gs_users_url')||'';
-  if(sheetsUrl2){
-    const doIt=confirm('Kullanıcı silindi!\nGoogle Sheets\'e de yansıtılsın mı?');
-    if(doIt)pushUsersToSheets();
-  }
+  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
+  if(scriptUrl) pushUsersToScript(scriptUrl);
 }
 
 // ═══════════════════════════════════════
-//  KULLANICI SHEETS SENKRON
+//  KULLANICI SENKRON (Apps Script)
 // ═══════════════════════════════════════
 
-// Ham CSV içeriğini göster (debug)
-async function debugSheetRaw(type){
-  const urlMap={stok:'gs_stok_url',cari:'gs_cari_url',users:'gs_users_url'};
-  const inputMap={stok:'gs-stok-url',cari:'gs-cari-url',users:'gs-users-url'};
-  const inputEl=document.getElementById(inputMap[type]);
-  const url=(inputEl&&inputEl.value.trim())||localStorage.getItem(urlMap[type])||'';
-  if(!url){alert('URL boş! Önce URL alanını doldurun.');return;}
-  
-  // Hangi URL'lerin deneneceğini göster
-  const p=parseSheetUrl(url);
-  const info=p?`Dosya ID: ${p.id}\nSekme GID: ${p.gid}`:'URL parse edilemedi';
-  
+// Apps Script'ten kullanıcı listesi çek
+async function fetchUsersFromScript(scriptUrl){
   try{
-    const csv=await fetchSheetCSV(url);
-    const lines=csv.split('\n').filter(l=>l.trim());
-    const msg=[
-      info,
-      ``,
-      `=== CSV İÇERİĞİ (${lines.length} satır) ===`,
-      ...lines.slice(0,20).map((l,i)=>`Satır ${i}: ${l.substring(0,120)}`),
-      lines.length>20?`... ve ${lines.length-20} satır daha ...`:''
-    ].join('\n');
-    alert(msg);
+    const resp=await fetch(scriptUrl+'?action=getUsers',{cache:'no-store'});
+    if(!resp.ok)return null;
+    const data=await resp.json();
+    if(!data||!data.users||!data.users.length)return null;
+    return data.users.map(u=>({
+      id:String(u.id||'').trim(),
+      pw:hashPw(String(u.pw||u.sifre||'')),
+      name:String(u.name||u.ad||u.id||'').trim(),
+      role:String(u.role||u.rol||'user').toLowerCase()==='admin'?'admin':'user'
+    })).filter(u=>u.id&&u.pw);
   }catch(e){
-    alert(`HATA: ${e.message}\n\n${info}`);
+    console.warn('Script kullanıcı çekme hatası:',e.message);
+    return null;
   }
 }
 
-// Sheets'ten kullanıcıları yükle (manuel tetik)
+// Kullanıcı listesini Apps Script'e gönder (otomatik veya manuel)
+async function pushUsersToScript(scriptUrl, showResult=false){
+  const allU=getUsers();
+  if(!allU.length)return;
+  const payload=allU.map(u=>{
+    let plainPw='';
+    try{plainPw=atob(u.pw);}catch(e){plainPw='(degistir)';}
+    return{id:u.id,pw:plainPw,name:u.name,role:u.role};
+  });
+  try{
+    if(showResult)showUserSyncResult('loading','Senkronize ediliyor...');
+    const resp=await fetch(scriptUrl,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'saveUsers',users:payload})
+    });
+    const data=await resp.json();
+    if(showResult){
+      if(data.ok)showUserSyncResult('ok','✅ '+allU.length+' kullanıcı senkronize edildi');
+      else showUserSyncResult('error','Hata: '+(data.error||''));
+    }
+  }catch(e){
+    if(showResult)showUserSyncResult('error','Gönderilemedi: '+e.message);
+  }
+}
+
+// Manuel: Kullanıcıları Script'ten çek ve güncelle
 async function syncUsersFromSheets(){
-  const url=localStorage.getItem('gs_users_url')||'';
-  if(!url){
-    showUserSyncResult('error','Önce Ayarlar > Kullanıcı Sheets URL alanını doldurun.');
+  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
+  if(!scriptUrl){
+    showUserSyncResult('error','Önce Ayarlar > Apps Script URL kaydedin.');
     return;
   }
   showUserSyncResult('loading','Yükleniyor...');
-  try{
-    const csv=await fetchSheetCSV(url);
-    const rows=parseCSV(csv);
-
-    if(!rows.length){
-      showUserSyncResult('error','CSV boş geldi. Sheets paylaşım iznini kontrol edin (Herkes okuyabilir).');
-      return;
-    }
-
-    console.log('[Kullanıcı Sync] Sütunlar:', Object.keys(rows[0]));
-    console.log('[Kullanıcı Sync] Toplam satır:', rows.length);
-
-    // Her sütun ismi için normalize edilmiş karşılık bul
-    const normKey=k=>k.trim().toLowerCase()
-      .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
-      .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
-      .replace(/\s+/g,'').replace(/[^a-z0-9]/g,'');
-
-    // Sheets'teki asıl sütun isimlerini bul (normKey → gerçek key)
-    const colMap={};
-    if(rows.length>0){
-      Object.keys(rows[0]).forEach(k=>{ colMap[normKey(k)]=k; });
-    }
-    console.log('[Kullanıcı Sync] colMap:', colMap);
-
-    // Sütun adlarını bul: önce normalize eşle, yoksa pozisyonel al
-    const cols=Object.keys(rows[0]);
-    const getCol=(row,candidates,fallbackIdx)=>{
-      for(const c of candidates){
-        const real=colMap[c];
-        if(real&&row[real]!==undefined&&String(row[real]).trim())return String(row[real]).trim();
-      }
-      return String(row[cols[fallbackIdx]]||'').trim();
-    };
-
-    const loaded=rows.map((r,i)=>{
-      const id=getCol(r,['kullaniciid','userid','id','kullanici','kullaniciad'],0);
-      const pw=getCol(r,['sifre','password','pw','parola','sifre'],1);
-      const name=getCol(r,['ad','adsoyad','name','isim','tamad','adisoyadi'],2)||id;
-      const roleRaw=getCol(r,['rol','role','yetki','tip','kullanicirolu'],3);
-      const role=roleRaw.toLowerCase()==='admin'?'admin':'user';
-
-      if(!id||!pw){
-        console.log('[Kullanıcı Sync] Satır '+i+' atlandı (id veya şifre yok):', r);
-        return null;
-      }
-      console.log(`[Kullanıcı Sync] ✓ Satır ${i}: id=${id} rol=${role}`);
-      return{id,pw:hashPw(pw),name,role};
-    }).filter(Boolean);
-
-    if(!loaded.length){
-      showUserSyncResult('error',`Hiç kullanıcı yüklenemedi. Sütun isimleri tam olmalı: KullaniciID | Sifre | Ad | Rol. Bulunan sütunlar: ${Object.keys(rows[0]).join(', ')}`);
-      return;
-    }
-
-    users=loaded;
+  const remote=await fetchUsersFromScript(scriptUrl);
+  if(remote&&remote.length){
+    users=remote;
     localStorage.setItem('sys_users',JSON.stringify(users));
     renderUserList();
-    showUserSyncResult('ok',`✅ ${loaded.length} kullanıcı yüklendi`);
-  }catch(e){
-    console.error('[Kullanıcı Sync] Hata:', e);
-    showUserSyncResult('error','Hata: '+e.message);
+    showUserSyncResult('ok','✅ '+remote.length+' kullanıcı yüklendi');
+  } else {
+    showUserSyncResult('error','Kullanıcı alınamadı. Apps Script URL doğru ve dağıtılmış olmalı.');
   }
 }
 
-// Mevcut kullanıcıları Sheets'e Excel olarak indir (Admin yapıştırsın)
-function pushUsersToSheets(){
-  const allU=getUsers();
-  if(!allU.length){alert('Kullanıcı yok.');return;}
-  // Şifreleri plain text göster — sadece admin yapıştırsın
-  // NOT: hashPw ile kaydedilmiş şifreler geri çözülemez
-  // Sheets'te düz şifre tutulur, uygulama hash'ler
-  const rows=allU.map(u=>{
-    // Eğer şifre hashlenmiş ise gösteremeyiz, yeni şifre belirlenmesini isteyelim
-    return{KullaniciID:u.id, Sifre:'(yeni_sifre_girin)', Ad:u.name, Rol:u.role};
-  });
-  // Excel indir
-  const ws=XLSX.utils.json_to_sheet(rows);
-  ws['!cols']=[{wch:18},{wch:20},{wch:22},{wch:10}];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Kullanicilar');
-  XLSX.writeFile(wb,'kullanicilar_sheets_icin.xlsx');
-  alert('Excel indirildi! Sifre sutununu doldurun, Sheets Kullanicilar sekmesine yapistirun, Ayarlar\'da URL kaydedin, Sheets\'ten Yukle butonuna basin.');
+// Manuel: Kullanıcıları Script'e gönder
+async function pushUsersToSheets(){
+  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
+  if(!scriptUrl){alert('Önce Apps Script URL girin.');return;}
+  await pushUsersToScript(scriptUrl, true);
 }
 
-// Hızlı şifre ile direkt Sheets şablonu oluştur
-function createUserSheetsTemplate(){
-  const rows=[
-    {KullaniciID:'admin', Sifre:'admin123', Ad:'Yönetici', Rol:'admin'},
-    {KullaniciID:'satis1', Sifre:'1234', Ad:'Satış 1', Rol:'user'},
-    {KullaniciID:'satis2', Sifre:'1234', Ad:'Satış 2', Rol:'user'},
-  ];
-  const ws=XLSX.utils.json_to_sheet(rows);
-  ws['!cols']=[{wch:18},{wch:20},{wch:22},{wch:10}];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Kullanicilar');
-  XLSX.writeFile(wb,'kullanicilar_ornek.xlsx');
-  alert('Ornek sablon indirildi! Sheets Kullanicilar sekmesine yukleyin, Ayarlar\'da URL kaydedin.');
+// fetchUsersFromSheets alias (geriye uyumluluk)
+async function fetchUsersFromSheets(){
+  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
+  if(!scriptUrl)return null;
+  return fetchUsersFromScript(scriptUrl);
 }
 
+// Debug: hangi script URL kullanılıyor, kullanıcılar geliyor mu?
+async function debugSheetRaw(type){
+  if(type==='users'){
+    const scriptUrl=localStorage.getItem('gs_orders_url')||'';
+    if(!scriptUrl){alert('Apps Script URL bulunamadı.');return;}
+    try{
+      const resp=await fetch(scriptUrl+'?action=getUsers',{cache:'no-store'});
+      const text=await resp.text();
+      alert('Script yanıtı (ilk 800 karakter):\n'+text.substring(0,800));
+    }catch(e){alert('Hata: '+e.message);}
+    return;
+  }
+  // Stok/cari için CSV debug
+  const urlMap={stok:'gs_stok_url',cari:'gs_cari_url'};
+  const inputMap={stok:'gs-stok-url',cari:'gs-cari-url'};
+  const inputEl=document.getElementById(inputMap[type]);
+  const url=(inputEl&&inputEl.value.trim())||localStorage.getItem(urlMap[type])||'';
+  if(!url){alert('URL boş!');return;}
+  const p=parseSheetUrl(url);
+  const info=p?`ID: ${p.id} | GID: ${p.gid}`:'parse edilemedi';
+  try{
+    const csv=await fetchSheetCSV(url);
+    const lines=csv.split('\n').filter(l=>l.trim());
+    alert(info+'\n\n'+lines.slice(0,15).map((l,i)=>`[${i}] ${l.substring(0,100)}`).join('\n'));
+  }catch(e){alert('Hata: '+e.message+'\n'+info);}
+}
 function showUserSyncResult(type,msg){
   const el=document.getElementById('u-sync-result');
   if(!el)return;
