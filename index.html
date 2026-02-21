@@ -791,15 +791,33 @@ let currentPDFDoc=null, currentPDFBlob=null;
 // ═══════════════════════════════════════
 //  LOGIN
 // ═══════════════════════════════════════
-function hashPw(pw){try{return btoa(unescape(encodeURIComponent(pw)));}catch(e){return btoa(pw);}}
+function hashPw(pw){
+  // Tum karakterleri (Turkce dahil) guvenli sekilde encode et
+  try{
+    return btoa(encodeURIComponent(pw).replace(/%([0-9A-F]{2})/gi,function(m,h){return String.fromCharCode(parseInt(h,16));}));
+  }catch(e){
+    // Fallback: her karakterin char kodunu kullan
+    return Array.from(pw).map(c=>c.charCodeAt(0).toString(16).padStart(4,'0')).join('');
+  }
+}
+function getUsers(){
+  try{const s=localStorage.getItem('sys_users');return s?JSON.parse(s):users;}catch(e){return users;}
+}
 function doLogin(){
-  // Her giriş denemesinde localStorage'dan güncel kullanıcı listesini oku
-  const su=localStorage.getItem('sys_users');
-  if(su){users=JSON.parse(su);}
+  const allUsers=getUsers();
   const id=document.getElementById('l-id').value.trim();
   const pw=document.getElementById('l-pw').value;
-  const u=users.find(x=>x.id===id&&x.pw===hashPw(pw));
-  if(!u){document.getElementById('l-err').style.display='block';document.getElementById('l-pw').value='';return;}
+  const pwHash=hashPw(pw);
+  // Her iki formati da kabul et (eski btoa + yeni hashPw)
+  let pwBtoa='';try{pwBtoa=btoa(pw);}catch(e){}
+  const u=allUsers.find(x=>x.id===id&&(x.pw===pwHash||x.pw===pwBtoa));
+  const errEl=document.getElementById('l-err');
+  if(!u){
+    errEl.style.display='block';
+    document.getElementById('l-pw').value='';
+    return;
+  }
+  users=allUsers;
   loginOK(u);
 }
 function loginOK(u){
@@ -2124,11 +2142,21 @@ function closeAddUser(){document.getElementById('u-modal').classList.remove('ope
 function saveUser(){
   const id=document.getElementById('mu-id').value.trim(),pw=document.getElementById('mu-pw').value,nm=document.getElementById('mu-n').value.trim(),role=document.getElementById('mu-r').value;
   if(!id||!nm){alert('ID ve Ad zorunlu!');return;}
-  if(editingUid){const u=users.find(x=>x.id===editingUid);u.name=nm;u.role=role;if(pw)u.pw=hashPw(pw);}
-  else{if(!pw){alert('Şifre zorunlu!');return;}if(users.find(u=>u.id===id)){alert('Bu ID zaten var!');return;}users.push({id,pw:hashPw(pw),name:nm,role});}
-  localStorage.setItem('sys_users',JSON.stringify(users));renderUserList();closeAddUser();
+  // Her zaman localStorage'dan guncel listeyi al
+  users=getUsers();
+  if(editingUid){
+    const u=users.find(x=>x.id===editingUid);
+    if(u){u.name=nm;u.role=role;if(pw)u.pw=hashPw(pw);}
+  } else {
+    if(!pw){alert('Şifre zorunlu!');return;}
+    if(users.find(u=>u.id===id)){alert('Bu ID zaten var!');return;}
+    users.push({id:id,pw:hashPw(pw),name:nm,role:role});
+  }
+  localStorage.setItem('sys_users',JSON.stringify(users));
+  renderUserList();
+  closeAddUser();
 }
-function delUser(id){if(!confirm(id+' silinsin mi?'))return;users=users.filter(u=>u.id!==id);localStorage.setItem('sys_users',JSON.stringify(users));renderUserList();}
+function delUser(id){if(!confirm(id+' silinsin mi?'))return;users=getUsers().filter(u=>u.id!==id);localStorage.setItem('sys_users',JSON.stringify(users));renderUserList();}
 
 // ═══════════════════════════════════════
 //  FİRMA
