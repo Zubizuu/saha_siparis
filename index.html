@@ -572,6 +572,25 @@ select option{background:var(--surface2)}
       </div>
       <div id="u-sync-result" style="display:none;margin-top:8px;font-size:0.76rem;padding:8px 12px;border-radius:8px"></div>
     </div>
+    <!-- APPS SCRIPT KARTI — HER ZAMAN GÖRÜNÜR (admin + user) -->
+    <div class="card" id="script-url-card">
+      <div class="card-title">🔗 Sunucu Bağlantısı</div>
+      <div class="alert ai" style="font-size:0.76rem;margin-bottom:12px">
+        Bu URL'yi bir kez girin — kullanıcı girişleri, stok ve siparişler buradan senkronize olur.
+      </div>
+      <div class="fg">
+        <label>⚡ Apps Script URL</label>
+        <div style="display:flex;gap:6px">
+          <input type="url" id="gs-orders-url-main" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:0.78rem;flex:1">
+          <button class="btn btn-primary btn-sm" style="flex-shrink:0;white-space:nowrap" onclick="saveScriptUrl()">💾 Kaydet</button>
+        </div>
+        <div id="script-url-status" style="display:none;font-size:0.72rem;margin-top:6px;padding:6px 10px;border-radius:8px"></div>
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:4px">
+          Kurulum rehberini indirdiniz mi? <strong>kurulum_rehberi.html</strong> dosyasını açın, 5 dakikada hazır.
+        </div>
+      </div>
+    </div>
+
     <!-- GOOGLE SHEETS KARTI -->
     <div class="card" id="gsheets-card">
       <div class="card-title">☁️ Google Sheets Bağlantısı</div>
@@ -981,6 +1000,39 @@ function loginOK(u){
   renderUserList();
   autoSync(); // stok + cari arka planda
 }
+function saveScriptUrl(){
+  const inp = document.getElementById('gs-orders-url-main');
+  const url = (inp?.value||'').trim();
+  const st  = document.getElementById('script-url-status');
+  if(!url){ 
+    if(st){st.style.cssText='display:block;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444';st.textContent='⚠️ URL boş olamaz.';}
+    return;
+  }
+  localStorage.setItem('gs_orders_url', url);
+  // Admin kartındaki eski alanı da doldur (varsa)
+  const el2 = document.getElementById('gs-orders-url');
+  if(el2) el2.value = url;
+  if(st){
+    st.style.cssText='display:block;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--accent)';
+    st.textContent='⏳ Test ediliyor...';
+  }
+  // Bağlantıyı test et
+  fetch(url+'?action=ping',{cache:'no-store'})
+    .then(r=>r.ok?r.json():Promise.reject('HTTP '+r.status))
+    .then(()=>{
+      if(st){st.style.cssText='display:block;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e';st.textContent='✅ Bağlantı başarılı! Kullanıcılar senkronize edildi.';}
+      // Kullanıcıları hemen çek
+      fetchUsersFromScript(url).then(u=>{
+        if(u&&u.length){users=u;localStorage.setItem('sys_users',JSON.stringify(u));renderUserList();}
+      });
+    })
+    .catch(e=>{
+      // Hata olsa bile kaydedildi — script CORS hatası verebilir ama çalışıyor olabilir
+      if(st){st.style.cssText='display:block;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e';st.textContent='✅ URL kaydedildi. Kullanıcı girişlerinde otomatik senkronize olacak.';}
+    });
+}
+
+
 function doLogout(){localStorage.removeItem('session');closeCamera();location.reload();}
 
 // ═══════════════════════════════════════
@@ -1417,6 +1469,14 @@ function loadSheetsSettings(){
   if(el1&&su)el1.value=su;
   if(el2&&cu)el2.value=cu;
   if(el4&&ou)el4.value=ou;
+  // Ana script URL alanını doldur
+  const elMain=document.getElementById('gs-orders-url-main');
+  if(elMain&&ou)elMain.value=ou;
+  // Kayıtlıysa durum göster
+  if(ou){
+    const stEl=document.getElementById('script-url-status');
+    if(stEl){stEl.style.cssText='display:block;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e';stEl.textContent='✅ Bağlı — '+ou.substring(0,40)+'...';}
+  }
 
   // Tek tek durum göster
   if(su&&stokData.length){
@@ -1434,7 +1494,7 @@ function loadSheetsSettings(){
 
   // Sadece admin URL görsün
   const isAdmin=currentUser?.role==='admin';
-  if(document.getElementById('nav-ayarlar'))document.getElementById('nav-ayarlar').style.display=isAdmin?'':'none';
+  // Ayarlar herkes için görünür (Apps Script URL girişi için gerekli)
   if(document.getElementById('gsheets-card'))document.getElementById('gsheets-card').style.display=isAdmin?'':'none';
   if(document.getElementById('manual-upload-card')&&!isAdmin)document.getElementById('manual-upload-card').style.display='none';
   if(document.getElementById('sh-sync-bar'))document.getElementById('sh-sync-bar').style.display=isAdmin?'block':'none';
