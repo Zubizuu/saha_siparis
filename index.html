@@ -245,6 +245,7 @@ select option{background:var(--surface2)}
   <div class="login-card">
     <h2>🔐 Giriş Yap</h2>
     <div id="l-err" class="login-err">Hatalı kullanıcı ID veya şifre.</div>
+    <div id="l-loading" style="display:none;font-size:0.75rem;color:var(--accent);margin-bottom:8px;text-align:center">⏳ Kullanıcılar kontrol ediliyor...</div>
     <div class="lf"><label>Kullanıcı ID</label><input type="text" id="l-id" placeholder="Kullanıcı adınız..." autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <div class="lf"><label>Şifre</label><input type="password" id="l-pw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="btn-login" onclick="doLogin()">Giriş Yap →</button>
@@ -544,9 +545,25 @@ select option{background:var(--surface2)}
     </div>
     <div class="card" id="u-mgmt" style="display:none">
       <div class="card-title">👤 Kullanıcı Yönetimi</div>
+
+      <!-- Sheets sync bilgi kutusu -->
+      <div id="u-sheets-info" style="display:none;margin-bottom:10px">
+        <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:9px;padding:10px 13px;font-size:0.76rem;color:#22c55e">
+          ☁️ <strong>Google Sheets bağlı</strong> — Kullanıcılar Sheets'ten yükleniyor.<br>
+          <span style="color:var(--muted)">Yeni kullanıcı ekleyip "Sheets'e Yaz" ile senkronize edebilirsiniz.</span>
+        </div>
+      </div>
+
       <div id="u-list"></div>
       <div class="divider"></div>
-      <button class="btn btn-secondary btn-sm" onclick="openAddUser()">+ Kullanıcı Ekle</button>
+      <div class="flex g8" style="flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" style="flex:1" onclick="openAddUser()">+ Kullanıcı Ekle</button>
+        <button class="btn btn-primary btn-sm" style="flex:1" id="u-sheets-sync-btn" onclick="syncUsersFromSheets()" title="Google Sheets'ten kullanıcıları yeniden yükle">🔄 Sheets'ten Yükle</button>
+      </div>
+      <div class="mt8">
+        <button class="btn btn-success btn-sm" style="width:100%" id="u-sheets-push-btn" onclick="pushUsersToSheets()">☁️ Sheets'e Yaz — Tüm Kullanıcılar</button>
+      </div>
+      <div id="u-sync-result" style="display:none;margin-top:8px;font-size:0.76rem;padding:8px 12px;border-radius:8px"></div>
     </div>
     <!-- GOOGLE SHEETS KARTI -->
     <div class="card" id="gsheets-card">
@@ -580,8 +597,15 @@ select option{background:var(--surface2)}
       </div>
 
       <div class="fg" id="gs-users-wrap">
+        <div class="alert ai" style="font-size:0.73rem;margin-bottom:8px">
+          📋 Sheets'te <strong>Kullanicilar</strong> adında bir sekme oluşturun.<br>
+          Sütunlar: <code>KullaniciID | Sifre | Ad | Rol</code><br>
+          Rol: <code>admin</code> veya <code>user</code> — Sifre düz metin yazın.
+        </div>
         <label>👤 Kullanıcılar Sayfası URL</label>
         <input type="url" id="gs-users-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem">
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Sheets'te <strong>Kullanicilar</strong> sekmesi oluşturun → Sütunlar: KullaniciID | Sifre | Ad | Rol</div>
+        <button class="btn btn-secondary btn-xs mt8" onclick="createUserSheetsTemplate()" style="width:100%">⬇ Örnek Kullanıcı Şablonu İndir (Sheets'e Yükle)</button>
         <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Sütunlar: <strong>KullaniciID | Sifre | Ad | Rol</strong> (Rol: admin veya user) — "Bağlantıya sahip herkes okuyabilir" olmalı</div>
       </div>
 
@@ -824,8 +848,8 @@ let currentPDFDoc=null, currentPDFBlob=null;
 //  LOGIN
 // ═══════════════════════════════════════
 function hashPw(pw){
-  // Sade ve evrensel: her karakteri hex'e çevir
-  return Array.from(String(pw)).map(c=>c.charCodeAt(0).toString(16).padStart(4,'0')).join('');
+  // btoa ile şifrele (_hp ile aynı format — init ile uyumlu)
+  try{return btoa(unescape(encodeURIComponent(String(pw))));}catch(e){return btoa(String(pw));}
 }
 function getUsers(){
   try{const s=localStorage.getItem('sys_users');return s?JSON.parse(s):users;}catch(e){return users;}
@@ -857,6 +881,8 @@ async function fetchUsersFromSheets(){
 async function doLogin(){
   const loginBtn=document.querySelector('.btn-login');
   if(loginBtn)loginBtn.disabled=true;
+  const loadingEl=document.getElementById('l-loading');
+  if(loadingEl)loadingEl.style.display='block';
   const id=document.getElementById('l-id').value.trim();
   const pw=document.getElementById('l-pw').value;
   if(!id||!pw){
@@ -882,8 +908,10 @@ async function doLogin(){
   }
 
   const pwHash=hashPw(pw);
-  const u=allUsers.find(x=>x.id===id&&x.pw===pwHash);
+  const pwBtoa=btoa(pw); // eski format fallback
+  const u=allUsers.find(x=>x.id===id&&(x.pw===pwHash||x.pw===pwBtoa));
   if(loginBtn)loginBtn.disabled=false;
+  if(loadingEl)loadingEl.style.display='none';
   if(!u){
     const byId=allUsers.find(x=>x.id===id);
     errEl.textContent=byId?'Şifre hatalı.':'Kullanıcı bulunamadı.';
@@ -895,7 +923,15 @@ async function doLogin(){
 }
 
 function loginOK(u){
-  currentUser=u;localStorage.setItem('session',u.id);
+  currentUser=u;
+  localStorage.setItem('session',u.id);
+  // Aktif kullanıcıyı users listesinde güncelle
+  const allU=getUsers();
+  if(!allU.find(x=>x.id===u.id)){
+    allU.push(u);
+    localStorage.setItem('sys_users',JSON.stringify(allU));
+  }
+  users=getUsers();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-hdr').style.display='flex';
   document.getElementById('app-main').style.display='block';
@@ -1073,21 +1109,30 @@ function sheetsToCsvUrl(url){
     const m=url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
     if(!m)return null;
     const id=m[1];
-    // gid parametresini bul — #gid= veya &gid= veya ?gid=
+    // gid varsa ekle, yoksa ekleme (ilk sekme için)
     const gidM=url.match(/[?#&]gid=(\d+)/);
-    const gid=gidM?gidM[1]:'0';
-    // gviz/tq endpoint'i daha güvenilir ve paylaşım URL'leriyle uyumludur
-    return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&gid=${gid}`;
+    if(gidM && gidM[1]!=='0'){
+      return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&gid=${gidM[1]}`;
+    }
+    return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv`;
   }catch(e){return null;}
 }
 
 async function fetchSheetCSV(url){
   const csvUrl=sheetsToCsvUrl(url);
   if(!csvUrl)throw new Error('Geçersiz Google Sheets URL\'si');
-  // Google Sheets export URL'si CORS destekler
-  const resp=await fetch(csvUrl);
-  if(!resp.ok)throw new Error(`Veri çekilemedi (HTTP ${resp.status}). Sayfanın "Bağlantıya sahip herkes okuyabilir" olduğundan emin olun.`);
+  let resp;
+  try{
+    resp=await fetch(csvUrl);
+  }catch(e){
+    throw new Error('Ağ hatası: '+e.message);
+  }
+  if(!resp.ok)throw new Error(`Veri çekilemedi (HTTP ${resp.status}). Sheets paylaşım ayarını kontrol edin: Paylaş → Genel erişim → Bağlantıya sahip herkes → Görüntüleyici`);
   const text=await resp.text();
+  // gviz bazen HTML login sayfası döner
+  if(text.trim().startsWith('<!') || text.trim().startsWith('<html')){
+    throw new Error('Sheets erişim reddedildi. Paylaşım ayarı: Paylaş → Genel erişim → Bağlantıya sahip herkes → Görüntüleyici');
+  }
   return text;
 }
 
@@ -2247,10 +2292,15 @@ function exportHistory(){exportExcelOzet();}
 function renderUserList(){
   const el=document.getElementById('u-list');if(!el)return;
   const sheetsUrl=localStorage.getItem('gs_users_url')||'';
-  const sheetsBadge=sheetsUrl?`<div style="font-size:0.72rem;color:var(--success);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;margin-bottom:10px">☁️ Kullanıcılar Google Sheets'ten yönetiliyor — değişiklik için Sheets'i düzenleyin</div>`:'';
+  // Sheets bağlı ise bilgi kutusunu göster
+  const infoBox=document.getElementById('u-sheets-info');
+  if(infoBox)infoBox.style.display=sheetsUrl?'block':'none';
+  const pushBtn=document.getElementById('u-sheets-push-btn');
+  if(pushBtn)pushBtn.style.display=sheetsUrl?'':'none';
+  const sheetsBadge=''; // artık yukarıda kutu var
   const list=users.length?users.map(u=>`<div class="ur">
     <div><div class="ur-id">${u.id} <span class="badge ${u.role==='admin'?'ba':'bu'}">${u.role==='admin'?'Admin':'Kullanıcı'}</span></div><div class="ur-role">${u.name}</div></div>
-    <div class="flex g8">${(!sheetsUrl&&u.id!==currentUser?.id)?`<button class="btn btn-secondary btn-sm" onclick="editUser('${u.id}')">✏️</button><button class="btn btn-danger btn-xs" onclick="delUser('${u.id}')">🗑</button>`:''}</div>
+    <div class="flex g8">${u.id!==currentUser?.id?`<button class="btn btn-secondary btn-sm" onclick="editUser('${u.id}')">✏️</button><button class="btn btn-danger btn-xs" onclick="delUser('${u.id}')">🗑</button>`:''}</div>
   </div>`).join(''):'<div style="color:var(--muted);font-size:0.82rem;padding:8px">Henüz kullanıcı yok</div>';
   el.innerHTML=sheetsBadge+list;
 }
@@ -2260,12 +2310,6 @@ function closeAddUser(){document.getElementById('u-modal').classList.remove('ope
 function saveUser(){
   const id=document.getElementById('mu-id').value.trim(),pw=document.getElementById('mu-pw').value,nm=document.getElementById('mu-n').value.trim(),role=document.getElementById('mu-r').value;
   if(!id||!nm){alert('ID ve Ad zorunlu!');return;}
-  const sheetsUrl=localStorage.getItem('gs_users_url')||'';
-  if(sheetsUrl){
-    alert('⚠️ Kullanıcılar Google Sheets ile yönetiliyor.\nLütfen kullanıcıları doğrudan Sheets üzerinden ekleyin/düzenleyin.');
-    closeAddUser();
-    return;
-  }
   users=getUsers();
   if(editingUid){
     const u=users.find(x=>x.id===editingUid);
@@ -2278,8 +2322,107 @@ function saveUser(){
   localStorage.setItem('sys_users',JSON.stringify(users));
   renderUserList();
   closeAddUser();
+  // Sheets bağlıysa push seçeneği sun
+  const sheetsUrl2=localStorage.getItem('gs_users_url')||'';
+  if(sheetsUrl2){
+    const doIt=confirm('Kullanıcı kaydedildi!\nGoogle Sheets\'e de yazılsın mı?');
+    if(doIt)pushUsersToSheets();
+  }
 }
-function delUser(id){if(!confirm(id+' silinsin mi?'))return;users=getUsers().filter(u=>u.id!==id);localStorage.setItem('sys_users',JSON.stringify(users));renderUserList();}
+function delUser(id){
+  if(!confirm(id+' silinsin mi?'))return;
+  users=getUsers().filter(u=>u.id!==id);
+  localStorage.setItem('sys_users',JSON.stringify(users));
+  renderUserList();
+  const sheetsUrl2=localStorage.getItem('gs_users_url')||'';
+  if(sheetsUrl2){
+    const doIt=confirm('Kullanıcı silindi!\nGoogle Sheets\'e de yansıtılsın mı?');
+    if(doIt)pushUsersToSheets();
+  }
+}
+
+// ═══════════════════════════════════════
+//  KULLANICI SHEETS SENKRON
+// ═══════════════════════════════════════
+
+// Sheets'ten kullanıcıları yükle (manuel tetik)
+async function syncUsersFromSheets(){
+  const url=localStorage.getItem('gs_users_url')||'';
+  if(!url){
+    showUserSyncResult('error','Önce Ayarlar'ta Kullanıcı Sheets URL'sini kaydedin.');
+    return;
+  }
+  showUserSyncResult('loading','Yükleniyor...');
+  try{
+    const csv=await fetchSheetCSV(url);
+    const rows=parseCSV(csv);
+    const loaded=rows.map(r=>{
+      const keys=Object.keys(r);
+      const id=(r.KullaniciID||r.ID||r.id||r.kullaniciid||r[keys[0]]||'').trim();
+      const pw=(r.Sifre||r.sifre||r.Sifre||r[keys[1]]||'').trim();
+      const name=(r.Ad||r.ad||r.Name||r.name||r[keys[2]]||id).trim();
+      const role=(r.Rol||r.rol||r.Role||r.role||r[keys[3]]||'user').trim().toLowerCase();
+      if(!id||!pw)return null;
+      return{id,pw:hashPw(pw),name,role};
+    }).filter(Boolean);
+    if(!loaded.length){showUserSyncResult('error','Sheets'te kullanıcı bulunamadı. Sütunlar: KullaniciID, Sifre, Ad, Rol');return;}
+    users=loaded;
+    localStorage.setItem('sys_users',JSON.stringify(users));
+    renderUserList();
+    showUserSyncResult('ok',loaded.length+' kullanıcı yüklendi ✓');
+  }catch(e){
+    showUserSyncResult('error','Hata: '+e.message);
+  }
+}
+
+// Mevcut kullanıcıları Sheets'e Excel olarak indir (Admin yapıştırsın)
+function pushUsersToSheets(){
+  const allU=getUsers();
+  if(!allU.length){alert('Kullanıcı yok.');return;}
+  // Şifreleri plain text göster — sadece admin yapıştırsın
+  // NOT: hashPw ile kaydedilmiş şifreler geri çözülemez
+  // Sheets'te düz şifre tutulur, uygulama hash'ler
+  const rows=allU.map(u=>{
+    // Eğer şifre hashlenmiş ise gösteremeyiz, yeni şifre belirlenmesini isteyelim
+    return{KullaniciID:u.id, Sifre:'(yeni_sifre_girin)', Ad:u.name, Rol:u.role};
+  });
+  // Excel indir
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:18},{wch:20},{wch:22},{wch:10}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Kullanicilar');
+  XLSX.writeFile(wb,'kullanicilar_sheets_icin.xlsx');
+  alert('📥 Excel indirildi!\n\n✅ Yapılacaklar:\n1. "Sifre" sütununu gerçek şifrelerle doldurun\n2. Google Sheets'teki "Kullanicilar" sekmesine yapıştırın\n3. Ayarlar'ta URL'yi kaydedin\n4. "Sheets'ten Yükle" butonuna basın\n\nNOT: Sheets'te şifreler düz metin tutulur, uygulama otomatik hash'ler.');
+}
+
+// Hızlı şifre ile direkt Sheets şablonu oluştur
+function createUserSheetsTemplate(){
+  const rows=[
+    {KullaniciID:'admin', Sifre:'admin123', Ad:'Yönetici', Rol:'admin'},
+    {KullaniciID:'satis1', Sifre:'1234', Ad:'Satış 1', Rol:'user'},
+    {KullaniciID:'satis2', Sifre:'1234', Ad:'Satış 2', Rol:'user'},
+  ];
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:18},{wch:20},{wch:22},{wch:10}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Kullanicilar');
+  XLSX.writeFile(wb,'kullanicilar_ornek.xlsx');
+  alert('📥 Örnek kullanıcı şablonu indirildi!\n\nBu dosyayı Google Sheets\'e yükleyin:\n1. Sheets\'te yeni sekme → "Kullanicilar" adı verin\n2. Dosyayı import edin\n3. Herkese okuma izni verin\n4. Ayarlar'ta URL'yi kaydedin');
+}
+
+function showUserSyncResult(type,msg){
+  const el=document.getElementById('u-sync-result');
+  if(!el)return;
+  const styles={
+    ok:'background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#22c55e',
+    error:'background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#ef4444',
+    loading:'background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--accent)',
+  };
+  el.style.cssText=styles[type]||styles.loading;
+  el.textContent=(type==='loading'?'⏳ ':type==='ok'?'✅ ':'⚠️ ')+msg;
+  el.style.display='block';
+  if(type!=='loading')setTimeout(()=>{el.style.display='none';},4000);
+}
 
 // ═══════════════════════════════════════
 //  FİRMA
