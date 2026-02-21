@@ -268,6 +268,14 @@ select option{background:var(--surface2)}
           <button class="cc-clear" onclick="clearCari()">✕</button>
         </div>
       </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <select id="sip-il" onchange="filterCariDropdown()" style="flex:1;padding:8px 10px;font-size:0.8rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)">
+          <option value="">Tüm İller</option>
+        </select>
+        <select id="sip-ilce" onchange="filterCariDropdown()" style="flex:1;padding:8px 10px;font-size:0.8rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)">
+          <option value="">Tüm İlçeler</option>
+        </select>
+      </div>
       <div id="c-sw" class="sw">
         <input type="text" id="c-in" placeholder="Cari ara (ad, kod, şehir)..." oninput="searchCari()" onfocus="searchCari()" autocomplete="off">
         <div class="dd" id="c-dd"></div>
@@ -637,6 +645,14 @@ select option{background:var(--surface2)}
         <input type="text" id="cl-search" placeholder="Cari adı, kod, şehir..." oninput="renderCariList()" style="flex:1;padding:9px 12px;font-size:0.83rem">
         <button class="btn btn-primary btn-sm" onclick="openCariModal(null)">+ Ekle</button>
       </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <select id="cl-il" onchange="renderCariList()" style="flex:1;padding:8px 10px;font-size:0.8rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)">
+          <option value="">Tüm İller</option>
+        </select>
+        <select id="cl-ilce" onchange="renderCariList()" style="flex:1;padding:8px 10px;font-size:0.8rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text)">
+          <option value="">Tüm İlçeler</option>
+        </select>
+      </div>
       <div style="font-size:0.72rem;color:var(--muted)" id="cl-count">— cari</div>
     </div>
     <div id="cl-list"></div>
@@ -676,10 +692,11 @@ select option{background:var(--surface2)}
     <div class="fg"><label>Cari Kodu *</label><input type="text" id="cm-kod" placeholder="C001"></div>
     <div class="fg"><label>Cari Adı *</label><input type="text" id="cm-ad" placeholder="Müşteri Adı"></div>
     <div class="fg"><label>Adres</label><input type="text" id="cm-adres" placeholder="Adres..."></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-      <div class="fg" style="margin:0"><label>Şehir</label><input type="text" id="cm-sehir" placeholder="İstanbul"></div>
-      <div class="fg" style="margin:0"><label>Telefon</label><input type="text" id="cm-tel" placeholder="05xx..."></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div class="fg" style="margin:0"><label>Şehir (İl)</label><input type="text" id="cm-sehir" placeholder="İstanbul"></div>
+      <div class="fg" style="margin:0"><label>İlçe</label><input type="text" id="cm-ilce" placeholder="Kadıköy"></div>
     </div>
+    <div class="fg"><label>Telefon</label><input type="text" id="cm-tel" placeholder="05xx..."></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <div class="fg" style="margin:0"><label>Ödeme Şekli</label>
         <select id="cm-odeme"><option>VADELİ</option><option>NAKİT</option><option>KREDİ KARTI</option><option>HAVALE</option></select>
@@ -894,6 +911,7 @@ function goPage(n,btn){
   if(n==='ayarlar'){loadSheetsSettings();}
   if(n==='stoklar'){renderStokList();}
   if(n==='cariler'){renderCariList();}
+  if(n==='siparis'){initSiparisFilters();}
 }
 
 // ═══════════════════════════════════════
@@ -1110,6 +1128,7 @@ function csvRowToCari(row){
     ad:s(row.Ad||row.CariAdi||row[k[1]]),
     adres:s(row.Adres||row[k[2]]),
     sehir:s(row.Sehir||row['Şehir']||row[k[3]]),
+    ilce:s(row.Ilce||row['İlçe']||row.ilce||row[k[7]]||''),
     tel:s(row.Tel||row.Telefon||row[k[4]]),
     odeme:s(row.OdemeSekli||row.Odeme||row['Ödeme']||row[k[5]])||'VADELİ',
     iskonto:n(row.Iskonto||row['İskonto']||row[k[6]]),
@@ -1169,6 +1188,7 @@ async function syncFromSheets(manual=false){
         localStorage.setItem('cariData',JSON.stringify(cariData));
         localStorage.setItem('gs_cari_time',Date.now().toString());
         cariCount=parsed.length;
+        initSiparisFilters();if(document.getElementById('page-cariler')?.classList.contains('active'))renderCariList();
       } else errors.push('Cari sayfasında veri bulunamadı');
     }catch(e){errors.push('Cari: '+e.message);}
   }
@@ -1291,7 +1311,7 @@ function loadCari(ev){
         const k=Object.keys(row);
         return{
           kod:s(row.Kod||row.CariKodu||row[k[0]]),ad:s(row.Ad||row.CariAdi||row[k[1]]),
-          adres:s(row.Adres||row[k[2]]),sehir:s(row.Sehir||row['Şehir']||row[k[3]]),
+          adres:s(row.Adres||row[k[2]]),sehir:s(row.Sehir||row['Şehir']||row[k[3]]),ilce:s(row.Ilce||row['İlçe']||row.ilce||row[k[7]]||''),
           tel:s(row.Tel||row.Telefon||row[k[4]]),
           odeme:s(row.OdemeSekli||row.Odeme||row['Ödeme']||row[k[5]])||'VADELİ',
           iskonto:n(row.Iskonto||row['İskonto']||row[k[6]]),
@@ -1346,12 +1366,33 @@ function modeLabel(mode){
 // ═══════════════════════════════════════
 //  CARI SEARCH
 // ═══════════════════════════════════════
+function filterCariDropdown(){
+  const ilSel=document.getElementById('sip-il');
+  const ilceSel=document.getElementById('sip-ilce');
+  if(ilSel&&ilceSel)populateIlIlce(ilSel,ilceSel,cariData);
+  document.getElementById('c-in')?.focus();
+  searchCari();
+}
+function initSiparisFilters(){
+  const ilSel=document.getElementById('sip-il');
+  const ilceSel=document.getElementById('sip-ilce');
+  if(ilSel&&ilceSel)populateIlIlce(ilSel,ilceSel,cariData);
+}
 function searchCari(){
-  const q=document.getElementById('c-in').value.toLowerCase();
+  const q=(document.getElementById('c-in')?.value||'').toLowerCase().trim();
+  const selIl=document.getElementById('sip-il')?.value||'';
+  const selIlce=document.getElementById('sip-ilce')?.value||'';
   const dd=document.getElementById('c-dd');
-  const res=cariData.filter(c=>c.ad.toLowerCase().includes(q)||c.kod.toLowerCase().includes(q)||c.sehir.toLowerCase().includes(q)).slice(0,15);
-  dd.innerHTML=res.length?res.map(c=>`<div class="ddi" onclick="pickCari('${esc(c.kod)}')"><div class="dic">${c.kod}·${c.sehir}</div><div class="din">${c.ad}</div><div class="dip">${c.odeme}·İsk:%${c.iskonto}</div></div>`).join(''):'<div class="ddi tm" style="font-size:.8rem">Bulunamadı</div>';
-  dd.classList.add('open');
+  if(!dd)return;
+  // Filtre veya arama yoksa ve input odakta değilse kapat
+  if(!q&&!selIl&&!selIlce&&document.activeElement?.id!=='c-in'){dd.classList.remove('open');return;}
+  let res=cariData;
+  if(selIl)res=res.filter(c=>(c.sehir||'')===selIl);
+  if(selIlce)res=res.filter(c=>(c.ilce||'')===selIlce);
+  if(q)res=res.filter(c=>c.ad.toLowerCase().includes(q)||c.kod.toLowerCase().includes(q)||(c.sehir||'').toLowerCase().includes(q)||(c.ilce||'').toLowerCase().includes(q));
+  res=res.slice(0,20);
+  dd.innerHTML=res.length?res.map(c=>`<div class="ddi" onclick="pickCari('${esc(c.kod)}')"><div class="dic">${c.kod}${c.sehir?' · '+c.sehir:''}${c.ilce?' / '+c.ilce:''}</div><div class="din">${c.ad}</div><div class="dip">${c.odeme}·İsk:%${c.iskonto}</div></div>`).join(''):'<div class="ddi tm" style="font-size:.8rem">Bulunamadı</div>';
+  dd.classList.toggle('open', res.length>0||(selIl||selIlce)?true:q.length>0);
 }
 function pickCari(kod){
   selectedCari=cariData.find(c=>c.kod===kod);if(!selectedCari)return;
@@ -1359,7 +1400,8 @@ function pickCari(kod){
   document.getElementById('c-sw').style.display='none';
   document.getElementById('cc-wrap').style.display='block';
   document.getElementById('cc-name').textContent=selectedCari.ad;
-  document.getElementById('cc-sub').textContent=selectedCari.sehir+' · '+selectedCari.odeme+' · İsk:%'+selectedCari.iskonto;
+  const _loc=[selectedCari.sehir,selectedCari.ilce].filter(Boolean).join(' / ');
+  document.getElementById('cc-sub').textContent=(_loc?_loc+' · ':'')+selectedCari.odeme+' · İsk:%'+selectedCari.iskonto;
   document.getElementById('o-odeme').value=selectedCari.odeme;
 }
 function clearCari(){
@@ -2330,13 +2372,34 @@ function deleteStokModal(){
 // ═══════════════════════════════════════
 //  CARİ LİSTESİ & MODAL
 // ═══════════════════════════════════════
+function populateIlIlce(ilSel,ilceSel,data,curIl,curIlce){
+  // İlleri doldur
+  const iller=[...new Set(data.map(c=>c.sehir||'').filter(Boolean))].sort();
+  const selIl=curIl!==undefined?curIl:(ilSel.value||'');
+  ilSel.innerHTML='<option value="">Tüm İller</option>'+iller.map(il=>`<option${il===selIl?' selected':''}>${il}</option>`).join('');
+  // Seçili ile göre ilçeleri doldur
+  const filtByIl=selIl?data.filter(c=>c.sehir===selIl):data;
+  const ilceler=[...new Set(filtByIl.map(c=>c.ilce||'').filter(Boolean))].sort();
+  const selIlce=curIlce!==undefined?curIlce:(ilceSel.value||'');
+  ilceSel.innerHTML='<option value="">Tüm İlçeler</option>'+ilceler.map(i=>`<option${i===selIlce?' selected':''}>${i}</option>`).join('');
+}
+
 function renderCariList(){
   const q=(document.getElementById('cl-search')?.value||'').toLowerCase().trim();
+  const ilSel=document.getElementById('cl-il');
+  const ilceSel=document.getElementById('cl-ilce');
   const el=document.getElementById('cl-list');
   if(!el)return;
-  const list=q?cariData.filter(c=>c.ad.toLowerCase().includes(q)||c.kod.toLowerCase().includes(q)||(c.sehir||'').toLowerCase().includes(q)||(c.tel||'').includes(q)):cariData;
+  // Dropdown'ları doldur (mevcut seçimi koru)
+  if(ilSel&&ilceSel)populateIlIlce(ilSel,ilceSel,cariData);
+  const selIl=ilSel?.value||'';
+  const selIlce=ilceSel?.value||'';
+  let list=cariData;
+  if(q)list=list.filter(c=>c.ad.toLowerCase().includes(q)||c.kod.toLowerCase().includes(q)||(c.sehir||'').toLowerCase().includes(q)||(c.ilce||'').toLowerCase().includes(q)||(c.tel||'').includes(q));
+  if(selIl)list=list.filter(c=>c.sehir===selIl);
+  if(selIlce)list=list.filter(c=>c.ilce===selIlce);
   const cEl=document.getElementById('cl-count');
-  if(cEl)cEl.textContent=list.length+' cari'+(q?' (filtreli)':'');
+  if(cEl)cEl.textContent=list.length+' cari'+((q||selIl||selIlce)?' (filtreli)':'');
   if(!list.length){el.innerHTML='<div class="empty"><div class="ei">🏢</div><p>Cari bulunamadı.</p></div>';return;}
   el.innerHTML=list.map(c=>{
     const bakiye=parseFloat(c.bakiye||0);
@@ -2345,7 +2408,7 @@ function renderCariList(){
       <div class="card" style="padding:12px;margin-bottom:8px;cursor:pointer" onclick="openCariModal('${esc(c.kod)}')">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div style="flex:1;min-width:0">
-            <div style="font-family:monospace;font-size:0.7rem;color:var(--accent);margin-bottom:2px">${c.kod} · ${c.sehir||''}</div>
+            <div style="font-family:monospace;font-size:0.7rem;color:var(--accent);margin-bottom:2px">${c.kod}${c.sehir?' · '+c.sehir:''}${c.ilce?' / '+c.ilce:''}</div>
             <div style="font-weight:600;font-size:0.88rem;margin-bottom:3px">${c.ad}</div>
             <div style="font-size:0.72rem;color:var(--muted)">${c.odeme||'VADELİ'} · İsk:%${c.iskonto||0}${c.tel?' · '+c.tel:''}</div>
           </div>
@@ -2368,6 +2431,7 @@ function openCariModal(kod){
   document.getElementById('cm-ad').value=c?.ad||'';
   document.getElementById('cm-adres').value=c?.adres||'';
   document.getElementById('cm-sehir').value=c?.sehir||'';
+  document.getElementById('cm-ilce').value=c?.ilce||'';
   document.getElementById('cm-tel').value=c?.tel||'';
   document.getElementById('cm-odeme').value=c?.odeme||'VADELİ';
   document.getElementById('cm-iskonto').value=c?.iskonto||0;
@@ -2384,6 +2448,7 @@ function saveCariModal(){
     kod,ad,
     adres:document.getElementById('cm-adres').value.trim(),
     sehir:document.getElementById('cm-sehir').value.trim(),
+    ilce:document.getElementById('cm-ilce').value.trim(),
     tel:document.getElementById('cm-tel').value.trim(),
     odeme:document.getElementById('cm-odeme').value,
     iskonto:parseFloat(document.getElementById('cm-iskonto').value)||0,
