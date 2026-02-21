@@ -577,7 +577,7 @@ select option{background:var(--surface2)}
     <div class="card" id="gsheets-card">
       <div class="card-title">☁️ Google Sheets Bağlantısı</div>
       <div class="alert ai" style="font-size:0.76rem;margin-bottom:12px">
-        📋 Stok ve cari verisi Google Sheets'ten çekilir. Siz Sheets'i güncelleyince <strong>tüm kullanıcılarda anında değişir</strong>.
+        📋 Stok, Cari ve Kullanıcı verileri Google Sheets'ten çekilir. Her sekme için ayrı URL girebilirsiniz (aynı dosya farklı sekme olabilir).
       </div>
 
       <!-- Bağlantı durumu -->
@@ -588,48 +588,61 @@ select option{background:var(--surface2)}
             <div style="font-size:0.82rem;font-weight:600" id="gs-status-txt">Bağlantı yok</div>
             <div style="font-size:0.7rem;color:var(--muted)" id="gs-status-sub"></div>
           </div>
-          <button class="btn btn-secondary btn-xs" onclick="syncFromSheets(true)">🔄 Yenile</button>
+          <button class="btn btn-secondary btn-xs" onclick="syncAllFromSheets()">🔄 Hepsini Yenile</button>
         </div>
       </div>
 
+      <!-- STOK URL -->
       <div class="fg" id="gs-stok-wrap">
         <label>📦 Stok Sayfası URL</label>
-        <input type="url" id="gs-stok-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem">
-        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Google Sheets → Paylaş → "Bağlantıya sahip herkes okuyabilir" yapın</div>
+        <div style="display:flex;gap:6px">
+          <input type="url" id="gs-stok-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1">
+          <button class="btn btn-secondary btn-xs" onclick="testAndSyncSheet('stok')" title="Test et ve çek" style="flex-shrink:0;white-space:nowrap">🔄 Çek</button>
+        </div>
+        <div id="gs-stok-status" style="display:none;font-size:0.72rem;margin-top:4px;padding:5px 9px;border-radius:6px"></div>
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Sheets → Paylaş → "Bağlantıya sahip herkes" → Görüntüleyici ✓</div>
       </div>
 
+      <!-- CARİ URL -->
       <div class="fg" id="gs-cari-wrap">
         <label>👥 Cari Sayfası URL</label>
-        <input type="url" id="gs-cari-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem">
-        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Aynı dosyada farklı sekme olabilir</div>
+        <div style="display:flex;gap:6px">
+          <input type="url" id="gs-cari-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1">
+          <button class="btn btn-secondary btn-xs" onclick="testAndSyncSheet('cari')" title="Test et ve çek" style="flex-shrink:0;white-space:nowrap">🔄 Çek</button>
+        </div>
+        <div id="gs-cari-status" style="display:none;font-size:0.72rem;margin-top:4px;padding:5px 9px;border-radius:6px"></div>
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Aynı dosyada farklı sekme olabilir — sekme URL'sini kopyalayın</div>
       </div>
 
+      <!-- KULLANICI URL -->
       <div class="fg" id="gs-users-wrap">
-        <div class="alert ai" style="font-size:0.73rem;margin-bottom:8px">
-          📋 Sheets'te <strong>Kullanicilar</strong> adında bir sekme oluşturun.<br>
-          Sütunlar: <code>KullaniciID | Sifre | Ad | Rol</code><br>
-          Rol: <code>admin</code> veya <code>user</code> — Sifre düz metin yazın.
-        </div>
         <label>👤 Kullanıcılar Sayfası URL</label>
-        <input type="url" id="gs-users-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem">
-        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Sheets'te <strong>Kullanicilar</strong> sekmesi oluşturun → Sütunlar: KullaniciID | Sifre | Ad | Rol</div>
-        <button class="btn btn-secondary btn-xs mt8" onclick="createUserSheetsTemplate()" style="width:100%">⬇ Örnek Kullanıcı Şablonu İndir (Sheets'e Yükle)</button>
-        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Sütunlar: <strong>KullaniciID | Sifre | Ad | Rol</strong> (Rol: admin veya user) — "Bağlantıya sahip herkes okuyabilir" olmalı</div>
+        <div style="display:flex;gap:6px">
+          <input type="url" id="gs-users-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1">
+          <button class="btn btn-secondary btn-xs" onclick="testAndSyncSheet('users')" title="Test et ve çek" style="flex-shrink:0;white-space:nowrap">🔄 Çek</button>
+        </div>
+        <div id="gs-users-status" style="display:none;font-size:0.72rem;margin-top:4px;padding:5px 9px;border-radius:6px"></div>
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">
+          Sütunlar: <strong>KullaniciID | Sifre | Ad | Rol</strong> (Rol: admin veya user) · Şifreler düz metin yazılır
+        </div>
+        <button class="btn btn-secondary btn-xs mt8" onclick="createUserSheetsTemplate()" style="width:100%">⬇ Örnek Kullanıcı Şablonu İndir</button>
       </div>
 
       <div class="divider"></div>
+
+      <!-- SİPARİŞ URL -->
       <div class="card-title" style="margin-bottom:8px">📋 Sipariş Kaydı (Apps Script)</div>
       <div class="alert ai" style="font-size:0.73rem;margin-bottom:10px">
-        Siparişler Google Sheets'e otomatik kaydedilir. Bunun için bir <strong>Apps Script Web App URL</strong> gerekiyor — kurulum rehberinde adımlar var.
+        Siparişler Google Sheets'e otomatik kaydedilir. Bunun için bir <strong>Apps Script Web App URL</strong> gerekiyor.
       </div>
       <div class="fg" id="gs-orders-wrap">
         <label>☁️ Apps Script URL (Sipariş Kayıt)</label>
         <input type="url" id="gs-orders-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:0.78rem">
-        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Bu URL'yi kurmak için: Geçmiş sayfasındaki rehber butonuna bakın</div>
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Geçmiş sayfasındaki rehber butonuna bakın</div>
       </div>
 
       <div class="flex g8" style="flex-wrap:wrap">
-        <button class="btn btn-primary btn-sm" onclick="saveAndSyncSheets()">💾 Kaydet ve Senkronize Et</button>
+        <button class="btn btn-primary btn-sm" onclick="saveAndSyncSheets()">💾 Tüm URL'leri Kaydet</button>
         <button class="btn btn-secondary btn-sm" onclick="showManualUpload()">📁 Elle Yükle</button>
       </div>
     </div>
@@ -928,22 +941,43 @@ function doLogin(){
     return;
   }
 
+  // Önce Sheets URL varsa Sheets'ten çekip giriş dene
+  const sheetsUrl=localStorage.getItem('gs_users_url')||'';
+  if(sheetsUrl){
+    errEl.textContent='⏳ Kullanıcılar kontrol ediliyor...';
+    errEl.style.cssText='display:block;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--accent)';
+    fetchUsersFromSheets().then(sheetUsers=>{
+      if(sheetUsers&&sheetUsers.length){
+        // Sheets kullanıcılarını kaydet
+        localStorage.setItem('sys_users',JSON.stringify(sheetUsers));
+        users=sheetUsers;
+      }
+      _tryLogin(id,pw,errEl);
+    }).catch(()=>{
+      // Sheets başarısız → local ile dene
+      _tryLogin(id,pw,errEl);
+    });
+  } else {
+    _tryLogin(id,pw,errEl);
+  }
+}
+
+function _tryLogin(id,pw,errEl){
+  errEl.style.cssText='display:none';
   const allUsers=getUsers();
   const pwHash=btoa(pw);
   
   const u=allUsers.find(x=>{
     if(x.id!==id)return false;
-    // Tüm formatlarda kontrol
     try{
-      return x.pw===pwHash
-          || x.pw===btoa(unescape(encodeURIComponent(pw)));
+      return x.pw===pwHash || x.pw===btoa(unescape(encodeURIComponent(pw)));
     }catch(e){return x.pw===pwHash;}
   });
   
   if(!u){
     const byId=allUsers.find(x=>x.id===id);
-    errEl.textContent=byId?'Şifre hatalı.':'Kullanıcı bulunamadı.';
-    errEl.style.display='block';
+    errEl.textContent=byId?'Şifre hatalı.':'Kullanıcı bulunamadı. Sheets bağlıysa ağ bağlantısını kontrol edin.';
+    errEl.style.cssText='display:block';
     document.getElementById('l-pw').value='';
     const rw=document.getElementById('l-reset-wrap');
     if(rw)rw.style.display='block';
@@ -1139,35 +1173,38 @@ function closeCameraManual(){
 // ═══════════════════════════════════════
 
 // Google Sheets public CSV URL dönüştürücü
-// Sheets URL'den gid (sekme id) alıp CSV endpoint'e çevirir
+// Her türlü Sheets URL formatını destekler (/edit, /view, /pub, gid= ile veya olmadan)
 function sheetsToCsvUrl(url){
   try{
+    url=url.trim();
+    // Zaten export/gviz URL'si ise olduğu gibi kullan
+    if(url.includes('gviz/tq')||url.includes('/export?'))return url;
+    // Spreadsheet ID'yi çıkar
     const m=url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
     if(!m)return null;
     const id=m[1];
-    // gid varsa ekle, yoksa ekleme (ilk sekme için)
+    // gid parametresini her yerden yakala (?, #, & veya /edit#gid= formatları)
     const gidM=url.match(/[?#&]gid=(\d+)/);
-    if(gidM && gidM[1]!=='0'){
-      return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&gid=${gidM[1]}`;
-    }
-    return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv`;
+    const gid=gidM?gidM[1]:'0';
+    // Cache-bust için timestamp ekle
+    const ts=Math.floor(Date.now()/60000); // her dakika değişir
+    return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&gid=${gid}&_=${ts}`;
   }catch(e){return null;}
 }
 
 async function fetchSheetCSV(url){
   const csvUrl=sheetsToCsvUrl(url);
-  if(!csvUrl)throw new Error('Geçersiz Google Sheets URL\'si');
+  if(!csvUrl)throw new Error('Geçersiz Google Sheets URL\'si. Lütfen tam Sheets bağlantısını yapıştırın.');
   let resp;
   try{
-    resp=await fetch(csvUrl);
+    resp=await fetch(csvUrl,{cache:'no-store',headers:{'Accept':'text/csv,text/plain,*/*'}});
   }catch(e){
     throw new Error('Ağ hatası: '+e.message);
   }
-  if(!resp.ok)throw new Error(`Veri çekilemedi (HTTP ${resp.status}). Sheets paylaşım ayarını kontrol edin: Paylaş → Genel erişim → Bağlantıya sahip herkes → Görüntüleyici`);
+  if(!resp.ok)throw new Error(`Veri çekilemedi (HTTP ${resp.status}). Sheets'i herkese açık yapın: Paylaş → Genel erişim → Bağlantıya sahip herkes → Görüntüleyici`);
   const text=await resp.text();
-  // gviz bazen HTML login sayfası döner
   if(text.trim().startsWith('<!') || text.trim().startsWith('<html')){
-    throw new Error('Sheets erişim reddedildi. Paylaşım ayarı: Paylaş → Genel erişim → Bağlantıya sahip herkes → Görüntüleyici');
+    throw new Error('Sheets erişim reddedildi. Sheets\'i herkese açık yapın: Paylaş → Genel erişim → Bağlantıya sahip herkes → Görüntüleyici');
   }
   return text;
 }
@@ -1229,7 +1266,8 @@ function saveAndSyncSheets(){
   const stokUrl=document.getElementById('gs-stok-url').value.trim();
   const cariUrl=document.getElementById('gs-cari-url').value.trim();
   const ordersUrl=document.getElementById('gs-orders-url')?.value.trim()||'';
-  if(!stokUrl&&!cariUrl&&!ordersUrl){alert('En az bir URL girin!');return;}
+  const usersUrl=document.getElementById('gs-users-url')?.value.trim()||'';
+  if(!stokUrl&&!cariUrl&&!ordersUrl&&!usersUrl){alert('En az bir URL girin!');return;}
   if(stokUrl)localStorage.setItem('gs_stok_url',stokUrl);
   if(cariUrl)localStorage.setItem('gs_cari_url',cariUrl);
   if(ordersUrl){
@@ -1237,10 +1275,126 @@ function saveAndSyncSheets(){
     const btn=document.getElementById('sh-push-btn');
     if(btn)btn.style.display='';
   }
-  const usersUrl=document.getElementById('gs-users-url')?.value.trim()||'';
   if(usersUrl)localStorage.setItem('gs_users_url',usersUrl);
-  if(stokUrl||cariUrl)syncFromSheets(true);
-  else alert('✅ Ayarlar kaydedildi!');
+  syncAllFromSheets();
+}
+
+// Tüm verileri Sheets'ten çek
+async function syncAllFromSheets(){
+  const stokUrl=localStorage.getItem('gs_stok_url')||'';
+  const cariUrl=localStorage.getItem('gs_cari_url')||'';
+  const usersUrl=localStorage.getItem('gs_users_url')||'';
+  if(!stokUrl&&!cariUrl&&!usersUrl){
+    alert('Önce Google Sheets URL\'lerini kaydedin.');
+    return;
+  }
+  const promises=[];
+  if(stokUrl)promises.push(testAndSyncSheet('stok',false));
+  if(cariUrl)promises.push(testAndSyncSheet('cari',false));
+  if(usersUrl)promises.push(testAndSyncSheet('users',false));
+  await Promise.all(promises);
+  const parts=[];
+  if(stokData.length)parts.push(stokData.length+' ürün');
+  if(cariData.length)parts.push(cariData.length+' cari');
+  const now=new Date().toLocaleTimeString('tr-TR');
+  if(parts.length)setGsStatus('ok','Bağlı · '+parts.join(', '),`Son güncelleme: ${now}`);
+  updateDataStatus();
+}
+
+// Tek bir Sheets kaynağını test et ve çek
+async function testAndSyncSheet(type, showAlert=true){
+  const urlMap={stok:'gs_stok_url',cari:'gs_cari_url',users:'gs_users_url'};
+  const inputMap={stok:'gs-stok-url',cari:'gs-cari-url',users:'gs-users-url'};
+  const statusMap={stok:'gs-stok-status',cari:'gs-cari-status',users:'gs-users-status'};
+
+  // Input'taki değeri de dene (henüz kaydedilmemişse)
+  const inputEl=document.getElementById(inputMap[type]);
+  const url=(inputEl?.value.trim())||localStorage.getItem(urlMap[type])||'';
+  const statusEl=document.getElementById(statusMap[type]);
+
+  const setStatus=(ok,msg)=>{
+    if(!statusEl)return;
+    statusEl.style.cssText=ok
+      ?'display:block;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e'
+      :'display:block;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444';
+    statusEl.textContent=(ok?'✅ ':'⚠️ ')+msg;
+  };
+
+  if(!url){setStatus(false,'URL boş. Önce bağlantı adresini girin.');return;}
+
+  // URL'yi kaydet
+  localStorage.setItem(urlMap[type],url);
+
+  if(statusEl){
+    statusEl.style.cssText='display:block;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--accent)';
+    statusEl.textContent='⏳ Yükleniyor...';
+  }
+
+  try{
+    const csv=await fetchSheetCSV(url);
+    const rows=parseCSV(csv);
+
+    if(!rows.length){setStatus(false,'Veri boş geldi. Sheets paylaşım iznini kontrol edin.');return;}
+
+    if(type==='stok'){
+      const parsed=rows.map(csvRowToStok).filter(r=>r.kod||r.ad);
+      if(!parsed.length){setStatus(false,`Stok verisi işlenemedi. Bulunan sütunlar: ${Object.keys(rows[0]).join(', ')}`);return;}
+      stokData=parsed;
+      localStorage.setItem('stokData',JSON.stringify(stokData));
+      localStorage.setItem('gs_stok_time',Date.now().toString());
+      setStatus(true,`${parsed.length} ürün yüklendi`);
+      if(showAlert)alert(`✅ ${parsed.length} ürün Sheets'ten yüklendi!`);
+    }
+    else if(type==='cari'){
+      const parsed=rows.map(csvRowToCari).filter(r=>r.ad);
+      if(!parsed.length){setStatus(false,`Cari verisi işlenemedi. Bulunan sütunlar: ${Object.keys(rows[0]).join(', ')}`);return;}
+      cariData=parsed;
+      localStorage.setItem('cariData',JSON.stringify(cariData));
+      localStorage.setItem('gs_cari_time',Date.now().toString());
+      initSiparisFilters();
+      setStatus(true,`${parsed.length} cari yüklendi`);
+      if(showAlert)alert(`✅ ${parsed.length} cari Sheets'ten yüklendi!`);
+    }
+    else if(type==='users'){
+      // Sütun normalize
+      const normKey=k=>k.trim().toLowerCase()
+        .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
+        .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
+        .replace(/\s+/g,'').replace(/[^a-z0-9]/g,'');
+      const colMap={};
+      if(rows.length>0)Object.keys(rows[0]).forEach(k=>{ colMap[normKey(k)]=k; });
+      const cols=Object.keys(rows[0]);
+      const getCol=(row,candidates,fallbackIdx)=>{
+        for(const c of candidates){
+          const real=colMap[c];
+          if(real&&row[real]!==undefined&&String(row[real]).trim())return String(row[real]).trim();
+        }
+        return String(row[cols[fallbackIdx]]||'').trim();
+      };
+      const loaded=rows.map((r,i)=>{
+        const id=getCol(r,['kullaniciid','userid','id','kullanici','kullaniciad'],0);
+        const pw=getCol(r,['sifre','password','pw','parola'],1);
+        const name=getCol(r,['ad','adsoyad','name','isim','tamad'],2)||id;
+        const roleRaw=getCol(r,['rol','role','yetki','tip'],3);
+        const role=roleRaw.toLowerCase()==='admin'?'admin':'user';
+        if(!id||!pw)return null;
+        return{id,pw:hashPw(pw),name,role};
+      }).filter(Boolean);
+
+      if(!loaded.length){
+        setStatus(false,`Kullanıcı yüklenemedi. Sütunlar: ${Object.keys(rows[0]).join(', ')} — Beklenen: KullaniciID | Sifre | Ad | Rol`);
+        return;
+      }
+      users=loaded;
+      localStorage.setItem('sys_users',JSON.stringify(users));
+      renderUserList();
+      setStatus(true,`${loaded.length} kullanıcı yüklendi`);
+      if(showAlert)alert(`✅ ${loaded.length} kullanıcı Sheets'ten yüklendi!`);
+    }
+  }catch(e){
+    setStatus(false,e.message);
+    console.error(`[${type} Sync] Hata:`,e);
+  }
 }
 
 async function syncFromSheets(manual=false){
@@ -1250,51 +1404,16 @@ async function syncFromSheets(manual=false){
     if(manual)alert('Önce Google Sheets URL\'lerini kaydedin.');
     return;
   }
-
   setGsStatus('loading','Veriler çekiliyor...','');
-  let errors=[];let stokCount=0;let cariCount=0;
-
-  if(stokUrl){
-    try{
-      const csv=await fetchSheetCSV(stokUrl);
-      const rows=parseCSV(csv);
-      const parsed=rows.map(csvRowToStok).filter(r=>r.kod||r.ad);
-      if(parsed.length){
-        stokData=parsed;
-        localStorage.setItem('stokData',JSON.stringify(stokData));
-        localStorage.setItem('gs_stok_time',Date.now().toString());
-        stokCount=parsed.length;
-      } else errors.push('Stok sayfasında veri bulunamadı');
-    }catch(e){errors.push('Stok: '+e.message);}
-  }
-
-  if(cariUrl){
-    try{
-      const csv=await fetchSheetCSV(cariUrl);
-      const rows=parseCSV(csv);
-      const parsed=rows.map(csvRowToCari).filter(r=>r.ad);
-      if(parsed.length){
-        cariData=parsed;
-        localStorage.setItem('cariData',JSON.stringify(cariData));
-        localStorage.setItem('gs_cari_time',Date.now().toString());
-        cariCount=parsed.length;
-        initSiparisFilters();if(document.getElementById('page-cariler')?.classList.contains('active'))renderCariList();
-      } else errors.push('Cari sayfasında veri bulunamadı');
-    }catch(e){errors.push('Cari: '+e.message);}
-  }
-
-  if(errors.length){
-    setGsStatus('error','Hata oluştu',errors.join(' | '));
-    if(manual)alert('⚠️ Hata:\n'+errors.join('\n'));
-  } else {
-    const parts=[];
-    if(stokCount)parts.push(stokCount+' ürün');
-    if(cariCount)parts.push(cariCount+' cari');
-    const now=new Date().toLocaleTimeString('tr-TR');
-    setGsStatus('ok','Bağlı · '+parts.join(', '),`Son güncelleme: ${now}`);
-    if(manual)alert('✅ Senkronize edildi!\n'+parts.join(', '));
-  }
+  if(stokUrl)await testAndSyncSheet('stok',false);
+  if(cariUrl)await testAndSyncSheet('cari',false);
+  const parts=[];
+  if(stokData.length)parts.push(stokData.length+' ürün');
+  if(cariData.length)parts.push(cariData.length+' cari');
+  const now=new Date().toLocaleTimeString('tr-TR');
+  setGsStatus('ok','Bağlı · '+parts.join(', '),`Son güncelleme: ${now}`);
   updateDataStatus();
+  if(manual)alert('✅ Senkronize edildi!\n'+parts.join(', '));
 }
 
 function setGsStatus(type,txt,sub){
@@ -1316,35 +1435,48 @@ function loadSheetsSettings(){
   const su=localStorage.getItem('gs_stok_url')||'';
   const cu=localStorage.getItem('gs_cari_url')||'';
   const uu=localStorage.getItem('gs_users_url')||'';
+  const ou=localStorage.getItem('gs_orders_url')||'';
   const el1=document.getElementById('gs-stok-url');
   const el2=document.getElementById('gs-cari-url');
   const el3=document.getElementById('gs-users-url');
+  const el4=document.getElementById('gs-orders-url');
   if(el1&&su)el1.value=su;
   if(el2&&cu)el2.value=cu;
   if(el3&&uu)el3.value=uu;
+  if(el4&&ou)el4.value=ou;
+
+  // Tek tek durum göster
+  if(su&&stokData.length){
+    const stokEl=document.getElementById('gs-stok-status');
+    if(stokEl){stokEl.style.cssText='display:block;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e';stokEl.textContent='✅ '+stokData.length+' ürün yüklü';}
+  }
+  if(cu&&cariData.length){
+    const cariEl=document.getElementById('gs-cari-status');
+    if(cariEl){cariEl.style.cssText='display:block;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e';cariEl.textContent='✅ '+cariData.length+' cari yüklü';}
+  }
+  if(uu&&users.length){
+    const usersEl=document.getElementById('gs-users-status');
+    if(usersEl){usersEl.style.cssText='display:block;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e';usersEl.textContent='✅ '+users.length+' kullanıcı yüklü';}
+  }
+
   // Sadece admin URL görsün
   const isAdmin=currentUser?.role==='admin';
-  // Ayarlar nav butonu - sadece admin
   if(document.getElementById('nav-ayarlar'))document.getElementById('nav-ayarlar').style.display=isAdmin?'':'none';
-  // Google Sheets kartı - sadece admin
   if(document.getElementById('gsheets-card'))document.getElementById('gsheets-card').style.display=isAdmin?'':'none';
-  // Manuel yükleme kartı - sadece admin
   if(document.getElementById('manual-upload-card')&&!isAdmin)document.getElementById('manual-upload-card').style.display='none';
-  // Geçmiş sayfasındaki Google Sheets export - sadece admin
   if(document.getElementById('sh-sync-bar'))document.getElementById('sh-sync-bar').style.display=isAdmin?'block':'none';
   if(document.getElementById('sheets-export-section'))document.getElementById('sheets-export-section').style.display=isAdmin?'':'none';
   if(document.getElementById('sh-push-btn'))document.getElementById('sh-push-btn').style.display=isAdmin?'':'none';
-  if(!isAdmin)return;  // Aşağısı sadece admin için
-  if(document.getElementById('gs-stok-wrap'))document.getElementById('gs-stok-wrap').style.display='';
-  if(document.getElementById('gs-cari-wrap'))document.getElementById('gs-cari-wrap').style.display='';
-  if(document.querySelector('#gsheets-card .btn-primary'))document.querySelector('#gsheets-card .btn-primary').style.display='';
-  // Durum kutusu her zaman görünsün
+  if(!isAdmin)return;
+
+  // Genel durum kutusu
   if(su||cu){
-    const stokTime=localStorage.getItem('gs_stok_time');
-    const cariTime=localStorage.getItem('gs_cari_time');
     const parts=[];
     if(stokData.length)parts.push(stokData.length+' ürün');
     if(cariData.length)parts.push(cariData.length+' cari');
+    if(users.length)parts.push(users.length+' kullanıcı');
+    const stokTime=localStorage.getItem('gs_stok_time');
+    const cariTime=localStorage.getItem('gs_cari_time');
     const lastT=Math.max(Number(stokTime||0),Number(cariTime||0));
     const sub=lastT?'Son güncelleme: '+new Date(lastT).toLocaleString('tr-TR'):'';
     if(parts.length)setGsStatus('ok','Bağlı · '+parts.join(', '),sub);
@@ -1358,12 +1490,22 @@ function hideManualUpload(){document.getElementById('manual-upload-card').style.
 async function autoSync(){
   const stokUrl=localStorage.getItem('gs_stok_url')||'';
   const cariUrl=localStorage.getItem('gs_cari_url')||'';
-  if(!stokUrl&&!cariUrl)return;
-  const lastT=Math.max(Number(localStorage.getItem('gs_stok_time')||0),Number(localStorage.getItem('gs_cari_time')||0));
+  const usersUrl=localStorage.getItem('gs_users_url')||'';
+  if(!stokUrl&&!cariUrl&&!usersUrl)return;
+  const lastT=Math.max(
+    Number(localStorage.getItem('gs_stok_time')||0),
+    Number(localStorage.getItem('gs_cari_time')||0)
+  );
   const TEN_MIN=10*60*1000;
-  if(Date.now()-lastT>TEN_MIN){
-    await syncFromSheets(false);
+  const needsSync=Date.now()-lastT>TEN_MIN;
+  const promises=[];
+  if(needsSync){
+    if(stokUrl)promises.push(testAndSyncSheet('stok',false));
+    if(cariUrl)promises.push(testAndSyncSheet('cari',false));
   }
+  // Kullanıcıları her zaman çek (hafif, kritik)
+  if(usersUrl)promises.push(testAndSyncSheet('users',false));
+  if(promises.length)await Promise.all(promises);
 }
 
 // ═══════════════════════════════════════
@@ -2391,57 +2533,66 @@ async function syncUsersFromSheets(){
     showUserSyncResult('error','Önce Ayarlar > Kullanıcı Sheets URL alanını doldurun.');
     return;
   }
-  showUserSyncResult('loading','Yukleniyor...');
+  showUserSyncResult('loading','Yükleniyor...');
   try{
     const csv=await fetchSheetCSV(url);
     const rows=parseCSV(csv);
 
-    // Debug: ilk satırın sütun isimlerini göster
-    if(rows.length>0){
-      console.log('[Kullanıcı Sync] Sütunlar:', Object.keys(rows[0]));
-      console.log('[Kullanıcı Sync] Toplam satır:', rows.length);
-      console.log('[Kullanıcı Sync] İlk satır:', rows[0]);
-    } else {
-      showUserSyncResult('error','CSV boş geldi. Sheets paylaşım iznini kontrol edin.');
+    if(!rows.length){
+      showUserSyncResult('error','CSV boş geldi. Sheets paylaşım iznini kontrol edin (Herkes okuyabilir).');
       return;
     }
 
-    const loaded=rows.map((r,i)=>{
-      // Sütun isimlerini normalize et (büyük/küçük harf, boşluk fark etmez)
-      // Sütun isimlerini normalize et: küçük harf + Türkçe→ASCII + boşluk sil
-      const normKey=k=>k.trim().toLowerCase()
-        .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
-        .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
-        .replace(/[^a-z0-9]/g,'');
-      const norm={};
-      Object.keys(r).forEach(k=>{ norm[normKey(k)]=r[k]; });
+    console.log('[Kullanıcı Sync] Sütunlar:', Object.keys(rows[0]));
+    console.log('[Kullanıcı Sync] Toplam satır:', rows.length);
 
-      // Tüm olası sütun isimlerini dene
-      const vals=Object.values(r);
-      const id=(norm['kullaniciid']||norm['kullaniciad']||norm['id']||norm['userid']||norm['kullanici']||vals[0]||'').toString().trim();
-      const pw=(norm['sifre']||norm['sifre']||norm['password']||norm['pw']||vals[1]||'').toString().trim();
-      const name=(norm['ad']||norm['adsoyad']||norm['name']||norm['isim']||norm['tamad']||vals[2]||id).toString().trim();
-      const role=(norm['rol']||norm['role']||norm['yetki']||norm['tip']||vals[3]||'user').toString().trim().toLowerCase();
+    // Her sütun ismi için normalize edilmiş karşılık bul
+    const normKey=k=>k.trim().toLowerCase()
+      .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
+      .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
+      .replace(/\s+/g,'').replace(/[^a-z0-9]/g,'');
+
+    // Sheets'teki asıl sütun isimlerini bul (normKey → gerçek key)
+    const colMap={};
+    if(rows.length>0){
+      Object.keys(rows[0]).forEach(k=>{ colMap[normKey(k)]=k; });
+    }
+    console.log('[Kullanıcı Sync] colMap:', colMap);
+
+    // Sütun adlarını bul: önce normalize eşle, yoksa pozisyonel al
+    const cols=Object.keys(rows[0]);
+    const getCol=(row,candidates,fallbackIdx)=>{
+      for(const c of candidates){
+        const real=colMap[c];
+        if(real&&row[real]!==undefined&&String(row[real]).trim())return String(row[real]).trim();
+      }
+      return String(row[cols[fallbackIdx]]||'').trim();
+    };
+
+    const loaded=rows.map((r,i)=>{
+      const id=getCol(r,['kullaniciid','userid','id','kullanici','kullaniciad'],0);
+      const pw=getCol(r,['sifre','password','pw','parola','sifre'],1);
+      const name=getCol(r,['ad','adsoyad','name','isim','tamad','adisoyadi'],2)||id;
+      const roleRaw=getCol(r,['rol','role','yetki','tip','kullanicirolu'],3);
+      const role=roleRaw.toLowerCase()==='admin'?'admin':'user';
 
       if(!id||!pw){
-        console.log('[Kullanıcı Sync] Satır '+i+' atlandı - id veya şifre yok:', r);
+        console.log('[Kullanıcı Sync] Satır '+i+' atlandı (id veya şifre yok):', r);
         return null;
       }
-      console.log('[Kullanıcı Sync] Satır '+i+' yüklendi: id='+id+' rol='+role);
-      return{id,pw:hashPw(pw),name:name||id,role:role==='admin'?'admin':'user'};
+      console.log(`[Kullanıcı Sync] ✓ Satır ${i}: id=${id} rol=${role}`);
+      return{id,pw:hashPw(pw),name,role};
     }).filter(Boolean);
 
     if(!loaded.length){
-      // Ham CSV'yi kullanıcıya göster
-      showUserSyncResult('error','Hiç kullanıcı yüklenemedi. Konsolu kontrol edin (F12 > Console). Sütun isimleri: KullaniciID | Sifre | Ad | Rol olmalı.');
-      console.warn('[Kullanıcı Sync] Yüklenemedi. Ham rows:', rows);
+      showUserSyncResult('error',`Hiç kullanıcı yüklenemedi. Sütun isimleri tam olmalı: KullaniciID | Sifre | Ad | Rol. Bulunan sütunlar: ${Object.keys(rows[0]).join(', ')}`);
       return;
     }
 
     users=loaded;
     localStorage.setItem('sys_users',JSON.stringify(users));
     renderUserList();
-    showUserSyncResult('ok','✅ '+loaded.length+' kullanıcı yüklendi');
+    showUserSyncResult('ok',`✅ ${loaded.length} kullanıcı yüklendi`);
   }catch(e){
     console.error('[Kullanıcı Sync] Hata:', e);
     showUserSyncResult('error','Hata: '+e.message);
