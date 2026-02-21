@@ -549,7 +549,10 @@ select option{background:var(--surface2)}
       <button class="btn btn-primary btn-sm" onclick="saveFirma()">💾 Kaydet</button>
     </div>
     <div class="card" id="u-mgmt" style="display:none">
-      <div class="card-title">👤 Kullanıcı Yönetimi</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-title" style="margin:0">👤 Kullanıcı Yönetimi</div>
+        <div id="u-count-badge" style="font-size:0.7rem;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:3px 10px;border-radius:20px">0 kullanıcı</div>
+      </div>
 
       <!-- Sheets sync bilgi kutusu -->
       <div id="u-sheets-info" style="display:none;margin-bottom:10px">
@@ -890,15 +893,21 @@ async function fetchUsersFromSheets(){
   try{
     const csv=await fetchSheetCSV(url);
     const rows=parseCSV(csv);
-    // Sütun adlarını esnek tanı
+    if(!rows.length)return null;
     return rows.map(r=>{
-      const keys=Object.keys(r);
-      const id=(r.KullaniciID||r.ID||r.id||r.kullaniciid||r[keys[0]]||'').trim();
-      const pw=(r.Sifre||r.sifre||r.Şifre||r.şifre||r[keys[1]]||'').trim();
-      const name=(r.Ad||r.ad||r.Name||r.name||r[keys[2]]||id).trim();
-      const role=(r.Rol||r.rol||r.Role||r.role||r[keys[3]]||'user').trim().toLowerCase();
+      const normKey2=k=>k.trim().toLowerCase()
+        .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
+        .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
+        .replace(/[^a-z0-9]/g,'');
+      const norm={};
+      Object.keys(r).forEach(k=>{ norm[normKey2(k)]=r[k]; });
+      const vals2=Object.values(r);
+      const id=(norm['kullaniciid']||norm['id']||norm['userid']||norm['kullanici']||vals2[0]||'').toString().trim();
+      const pw=(norm['sifre']||norm['password']||norm['pw']||vals2[1]||'').toString().trim();
+      const name=(norm['ad']||norm['adsoyad']||norm['name']||vals2[2]||id).toString().trim();
+      const role=(norm['rol']||norm['role']||vals2[3]||'user').toString().trim().toLowerCase();
       if(!id||!pw)return null;
-      return{id,pw:hashPw(pw),name,role};
+      return{id,pw:hashPw(pw),name:name||id,role:role==='admin'?'admin':'user'};
     }).filter(Boolean);
   }catch(e){
     console.warn('Kullanıcı Sheets hatası:',e.message);
@@ -959,9 +968,15 @@ function loginOK(u){
   document.getElementById('app-nav').style.display='flex';
   document.getElementById('u-badge').textContent=u.name;
   document.getElementById('u-mgmt').style.display=u.role==='admin'?'block':'none';
-  applyFirma();renderUserList();renderHistory();updateStats();updateDataStatus();
+  applyFirma();renderHistory();updateStats();updateDataStatus();
   loadSheetsSettings();
   autoSync();
+  // Sheets URL varsa kullanıcıları çek ve paneli güncelle
+  if(localStorage.getItem('gs_users_url')){
+    syncUsersFromSheets().then(()=>renderUserList()).catch(()=>renderUserList());
+  } else {
+    renderUserList();
+  }
 }
 function doLogout(){localStorage.removeItem('session');closeCamera();location.reload();}
 
@@ -974,7 +989,7 @@ function goPage(n,btn){
   document.getElementById('page-'+n).classList.add('active');
   btn.classList.add('active');
   if(n==='gecmis'){renderHistory();updateStats();}
-  if(n==='ayarlar'){loadSheetsSettings();}
+  if(n==='ayarlar'){loadSheetsSettings();if(localStorage.getItem('gs_users_url'))syncUsersFromSheets();}
   if(n==='stoklar'){renderStokList();}
   if(n==='cariler'){renderCariList();}
   if(n==='siparis'){initSiparisFilters();}
@@ -2319,11 +2334,14 @@ function renderUserList(){
   const pushBtn=document.getElementById('u-sheets-push-btn');
   if(pushBtn)pushBtn.style.display=sheetsUrl?'':'none';
   const sheetsBadge=''; // artık yukarıda kutu var
-  const list=users.length?users.map(u=>`<div class="ur">
+  const allU=getUsers();
+  const list=allU.length?allU.map(u=>`<div class="ur">
     <div><div class="ur-id">${u.id} <span class="badge ${u.role==='admin'?'ba':'bu'}">${u.role==='admin'?'Admin':'Kullanıcı'}</span></div><div class="ur-role">${u.name}</div></div>
     <div class="flex g8">${u.id!==currentUser?.id?`<button class="btn btn-secondary btn-sm" onclick="editUser('${u.id}')">✏️</button><button class="btn btn-danger btn-xs" onclick="delUser('${u.id}')">🗑</button>`:''}</div>
   </div>`).join(''):'<div style="color:var(--muted);font-size:0.82rem;padding:8px">Henüz kullanıcı yok</div>';
   el.innerHTML=sheetsBadge+list;
+  const badge=document.getElementById('u-count-badge');
+  if(badge)badge.textContent=allU.length+' kullanıcı';
 }
 function openAddUser(){editingUid=null;document.getElementById('mu-id').value='';document.getElementById('mu-id').disabled=false;document.getElementById('mu-pw').value='';document.getElementById('mu-n').value='';document.getElementById('mu-r').value='user';document.getElementById('u-modal').classList.add('open');}
 function editUser(id){const u=users.find(x=>x.id===id);if(!u)return;editingUid=id;document.getElementById('mu-id').value=u.id;document.getElementById('mu-id').disabled=true;document.getElementById('mu-pw').value='';document.getElementById('mu-n').value=u.name;document.getElementById('mu-r').value=u.role;document.getElementById('u-modal').classList.add('open');}
@@ -2370,28 +2388,62 @@ function delUser(id){
 async function syncUsersFromSheets(){
   const url=localStorage.getItem('gs_users_url')||'';
   if(!url){
-    showUserSyncResult('error','Önce Ayarlar bölümünde Kullanıcı Sheets URL kaydedin.');
+    showUserSyncResult('error','Önce Ayarlar > Kullanıcı Sheets URL alanını doldurun.');
     return;
   }
-  showUserSyncResult('loading','Yükleniyor...');
+  showUserSyncResult('loading','Yukleniyor...');
   try{
     const csv=await fetchSheetCSV(url);
     const rows=parseCSV(csv);
-    const loaded=rows.map(r=>{
-      const keys=Object.keys(r);
-      const id=(r.KullaniciID||r.ID||r.id||r.kullaniciid||r[keys[0]]||'').trim();
-      const pw=(r.Sifre||r.sifre||r.Sifre||r[keys[1]]||'').trim();
-      const name=(r.Ad||r.ad||r.Name||r.name||r[keys[2]]||id).trim();
-      const role=(r.Rol||r.rol||r.Role||r.role||r[keys[3]]||'user').trim().toLowerCase();
-      if(!id||!pw)return null;
-      return{id,pw:hashPw(pw),name,role};
+
+    // Debug: ilk satırın sütun isimlerini göster
+    if(rows.length>0){
+      console.log('[Kullanıcı Sync] Sütunlar:', Object.keys(rows[0]));
+      console.log('[Kullanıcı Sync] Toplam satır:', rows.length);
+      console.log('[Kullanıcı Sync] İlk satır:', rows[0]);
+    } else {
+      showUserSyncResult('error','CSV boş geldi. Sheets paylaşım iznini kontrol edin.');
+      return;
+    }
+
+    const loaded=rows.map((r,i)=>{
+      // Sütun isimlerini normalize et (büyük/küçük harf, boşluk fark etmez)
+      // Sütun isimlerini normalize et: küçük harf + Türkçe→ASCII + boşluk sil
+      const normKey=k=>k.trim().toLowerCase()
+        .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
+        .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
+        .replace(/[^a-z0-9]/g,'');
+      const norm={};
+      Object.keys(r).forEach(k=>{ norm[normKey(k)]=r[k]; });
+
+      // Tüm olası sütun isimlerini dene
+      const vals=Object.values(r);
+      const id=(norm['kullaniciid']||norm['kullaniciad']||norm['id']||norm['userid']||norm['kullanici']||vals[0]||'').toString().trim();
+      const pw=(norm['sifre']||norm['sifre']||norm['password']||norm['pw']||vals[1]||'').toString().trim();
+      const name=(norm['ad']||norm['adsoyad']||norm['name']||norm['isim']||norm['tamad']||vals[2]||id).toString().trim();
+      const role=(norm['rol']||norm['role']||norm['yetki']||norm['tip']||vals[3]||'user').toString().trim().toLowerCase();
+
+      if(!id||!pw){
+        console.log('[Kullanıcı Sync] Satır '+i+' atlandı - id veya şifre yok:', r);
+        return null;
+      }
+      console.log('[Kullanıcı Sync] Satır '+i+' yüklendi: id='+id+' rol='+role);
+      return{id,pw:hashPw(pw),name:name||id,role:role==='admin'?'admin':'user'};
     }).filter(Boolean);
-    if(!loaded.length){showUserSyncResult('error','Sheets sekmesinde kullanici bulunamadi. Sutunlar: KullaniciID, Sifre, Ad, Rol');return;}
+
+    if(!loaded.length){
+      // Ham CSV'yi kullanıcıya göster
+      showUserSyncResult('error','Hiç kullanıcı yüklenemedi. Konsolu kontrol edin (F12 > Console). Sütun isimleri: KullaniciID | Sifre | Ad | Rol olmalı.');
+      console.warn('[Kullanıcı Sync] Yüklenemedi. Ham rows:', rows);
+      return;
+    }
+
     users=loaded;
     localStorage.setItem('sys_users',JSON.stringify(users));
     renderUserList();
-    showUserSyncResult('ok',loaded.length+' kullanıcı yüklendi ✓');
+    showUserSyncResult('ok','✅ '+loaded.length+' kullanıcı yüklendi');
   }catch(e){
+    console.error('[Kullanıcı Sync] Hata:', e);
     showUserSyncResult('error','Hata: '+e.message);
   }
 }
@@ -2442,7 +2494,7 @@ function showUserSyncResult(type,msg){
   el.style.cssText=styles[type]||styles.loading;
   el.textContent=(type==='loading'?'⏳ ':type==='ok'?'✅ ':'⚠️ ')+msg;
   el.style.display='block';
-  if(type!=='loading')setTimeout(()=>{el.style.display='none';},4000);
+  if(type==='ok')setTimeout(()=>{el.style.display='none';},5000);
 }
 
 // ═══════════════════════════════════════
