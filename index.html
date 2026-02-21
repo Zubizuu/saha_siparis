@@ -770,9 +770,10 @@ let currentPDFDoc=null, currentPDFBlob=null;
 // ═══════════════════════════════════════
 (function(){
   const su=localStorage.getItem('sys_users');
+  function _hp(pw){try{return btoa(unescape(encodeURIComponent(pw)));}catch(e){return btoa(pw);}}
   users=su?JSON.parse(su):[
-    {id:'admin',pw:btoa('admin123'),name:'Yönetici',role:'admin'},
-    {id:'satis1',pw:btoa('1234'),name:'Satış 1',role:'user'},
+    {id:'admin',pw:_hp('admin123'),name:'Yönetici',role:'admin'},
+    {id:'satis1',pw:_hp('1234'),name:'Satış 1',role:'user'},
   ];
   if(!su)localStorage.setItem('sys_users',JSON.stringify(users));
   const sd=localStorage.getItem('stokData');if(sd)stokData=JSON.parse(sd);
@@ -790,13 +791,14 @@ let currentPDFDoc=null, currentPDFBlob=null;
 // ═══════════════════════════════════════
 //  LOGIN
 // ═══════════════════════════════════════
+function hashPw(pw){try{return btoa(unescape(encodeURIComponent(pw)));}catch(e){return btoa(pw);}}
 function doLogin(){
   // Her giriş denemesinde localStorage'dan güncel kullanıcı listesini oku
   const su=localStorage.getItem('sys_users');
   if(su){users=JSON.parse(su);}
   const id=document.getElementById('l-id').value.trim();
   const pw=document.getElementById('l-pw').value;
-  const u=users.find(x=>x.id===id&&x.pw===btoa(pw));
+  const u=users.find(x=>x.id===id&&x.pw===hashPw(pw));
   if(!u){document.getElementById('l-err').style.display='block';document.getElementById('l-pw').value='';return;}
   loginOK(u);
 }
@@ -1308,7 +1310,7 @@ function searchUrun(){
   dd.innerHTML=res.length?res.map(u=>`<div class="ddi" onclick="pickUrun('${esc(u.kod)}')">
     <div class="dic">${fieldLabel}: ${siparisMode==='pratik'?u.pratikKod:siparisMode==='stok'?u.stokKod:siparisMode==='barkod'?u.barkod:u.kod}</div>
     <div class="din">${u.ad}</div>
-    <div class="dip">${u.fiyat.toFixed(4)} TL / ${u.birim}</div>
+    <div class="dip">${fmt(u.fiyat)} / ${u.birim}</div>
   </div>`).join(''):'<div class="ddi tm" style="font-size:.8rem">Bulunamadı</div>';
   dd.classList.add('open');
 }
@@ -1326,7 +1328,7 @@ function pickUrun(kod){
   const displayCode=siparisMode==='pratik'?selectedUrun.pratikKod:siparisMode==='stok'?selectedUrun.stokKod:siparisMode==='barkod'?selectedUrun.barkod:selectedUrun.kod;
   document.getElementById('uf-kod').textContent=`${modeLabel(siparisMode)}: ${displayCode} · Stok: ${selectedUrun.stokKod||selectedUrun.kod}`;
   document.getElementById('uf-ad').textContent=selectedUrun.ad;
-  document.getElementById('uf-fiyat').textContent=selectedUrun.fiyat.toFixed(4)+' TL / '+selectedUrun.birim;
+  document.getElementById('uf-fiyat').textContent=fmt(selectedUrun.fiyat)+' / '+selectedUrun.birim;
   document.getElementById('uf-i').value=selectedCari?selectedCari.iskonto:0;
   document.getElementById('uf-i2').value=0;
   document.getElementById('uf-k').value=selectedUrun.kdv;
@@ -1341,7 +1343,7 @@ function updateUfNetPrice(){
   const i2=parseFloat(document.getElementById('uf-i2').value)||0;
   const net=selectedUrun.fiyat*(1-i1/100)*(1-i2/100);
   const el=document.getElementById('uf-netprice');
-  if(el)el.textContent=net.toFixed(4)+' TL';
+  if(el)el.textContent=fmt(net);
 }
 // Attach live update to iskonto inputs
 document.addEventListener('input',e=>{if(e.target&&(e.target.id==='uf-i'||e.target.id==='uf-i2'))updateUfNetPrice();});
@@ -1384,7 +1386,7 @@ function renderOrder(){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:5px">
         <div><div class="oi-lbl">İsk2 %</div><input type="number" value="${i2}" min="0" max="100" inputmode="decimal" onchange="updateItem(${it.id},'iskonto2',this.value)"></div>
-        <div><div class="oi-lbl" style="color:var(--muted)">Net Birim</div><div style="padding:7px 9px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--success)">${(it.fiyat*(1-it.iskonto/100)*(1-(i2)/100)).toFixed(4)} TL</div></div>
+        <div><div class="oi-lbl" style="color:var(--muted)">Net Birim</div><div style="padding:7px 9px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.78rem;color:var(--success)">${fmt(it.fiyat*(1-it.iskonto/100)*(1-(i2)/100))}</div></div>
       </div>
       <div class="oi-total">${fmt(tot)}</div>
     </div>`;
@@ -1636,7 +1638,7 @@ function buildPDFDoc(items,opts={}){
     const i2=it.iskonto2||0;
     const tot=it.fiyat*it.miktar*(1-it.iskonto/100)*(1-i2/100)*(1+it.kdv/100);
     const iskStr=i2>0?`${it.iskonto}+${i2}`:`${it.iskonto}`;
-    return[i+1,trFix(it.stokKod||it.kod),trFix(it.pratikKod||'-'),trFix(it.ad),it.miktar+' '+trFix(it.birim),iskStr,it.kdv,it.fiyat.toFixed(4),tot.toFixed(2)+' TL'];
+    return[i+1,trFix(it.stokKod||it.kod),trFix(it.pratikKod||'-'),trFix(it.ad),it.miktar+' '+trFix(it.birim),iskStr,it.kdv,fmtN(it.fiyat,2),fmtN(tot,2)+' TL'];
   });
 
   doc.autoTable({
@@ -1786,7 +1788,7 @@ function shareWhatsAppText(cariAd,total){
 
   orderItems.forEach((it,i)=>{
     const tot=it.fiyat*it.miktar*(1-it.iskonto/100)*(1+it.kdv/100);
-    msg+=`${i+1}. ${it.ad}\n   ${it.miktar} ${it.birim} × ${it.fiyat.toFixed(2)} TL`;
+    msg+=`${i+1}. ${it.ad}\n   ${it.miktar} ${it.birim} × ${fmt(it.fiyat)}`;
     if(it.iskonto>0)msg+=` (-%${it.iskonto})`;
     msg+=` = *${fmt(tot)}*\n`;
   });
@@ -1816,7 +1818,7 @@ function searchFiyat(){
   dd.innerHTML=res.length?res.map(u=>`<div class="ddi" onclick="showPrice('${esc(u.kod)}')">
     <div class="dic">${fieldLabel}: ${fiyatMode==='pratik'?u.pratikKod:fiyatMode==='stok'?u.stokKod:fiyatMode==='barkod'?u.barkod:u.kod}</div>
     <div class="din">${u.ad}</div>
-    <div class="dip">${u.fiyat.toFixed(4)} TL / ${u.birim}</div>
+    <div class="dip">${fmt(u.fiyat)} / ${u.birim}</div>
   </div>`).join(''):'<div class="ddi tm" style="font-size:.8rem">Bulunamadı</div>';
   dd.classList.add('open');
 }
@@ -1838,16 +1840,16 @@ function showPrice(kod){
   document.getElementById('f-dd').classList.remove('open');
   document.getElementById('pr-c').innerHTML=`Ürün Kodu: <strong>${u.kod}</strong>${u.pratikKod?' · Pratik: <strong>'+u.pratikKod+'</strong>':''}<br>Barkod: <strong>${u.barkod||'—'}</strong> · Stok Kodu: <strong>${u.stokKod||u.kod}</strong>`;
   document.getElementById('pr-n').textContent=u.ad;
-  document.getElementById('pr-p').textContent=u.fiyat.toFixed(4)+' TL';
+  document.getElementById('pr-p').textContent=fmt(u.fiyat);
   document.getElementById('pr-u').textContent='Birim: '+u.birim+' · KDV Hariç Liste Fiyatı';
-  document.getElementById('pr-k').textContent='KDV %'+u.kdv+' Dahil: '+(u.fiyat*(1+u.kdv/100)).toFixed(4)+' TL';
+  document.getElementById('pr-k').textContent='KDV %'+u.kdv+' Dahil: '+fmt(u.fiyat*(1+u.kdv/100));
 
   const levels=[0,5,10,15,20,25,30];
   document.getElementById('isk-rows').innerHTML=levels.map(pct=>{
     const net=u.fiyat*(1-pct/100),kdvli=net*(1+u.kdv/100);
     return`<div class="isk-row">
       <span class="isk-pct">${pct===0?'Liste Fiyatı':'%'+pct+' İskonto'}</span>
-      <div class="isk-prices"><div class="isk-kdvli">${kdvli.toFixed(4)} TL</div><div class="isk-net">KDV Hariç: ${net.toFixed(4)} TL</div></div>
+      <div class="isk-prices"><div class="isk-kdvli">${fmt(kdvli)}</div><div class="isk-net">KDV Hariç: ${fmt(net)}</div></div>
     </div>`;
   }).join('');
   document.getElementById('p-result').classList.add('show');
@@ -2122,8 +2124,8 @@ function closeAddUser(){document.getElementById('u-modal').classList.remove('ope
 function saveUser(){
   const id=document.getElementById('mu-id').value.trim(),pw=document.getElementById('mu-pw').value,nm=document.getElementById('mu-n').value.trim(),role=document.getElementById('mu-r').value;
   if(!id||!nm){alert('ID ve Ad zorunlu!');return;}
-  if(editingUid){const u=users.find(x=>x.id===editingUid);u.name=nm;u.role=role;if(pw)u.pw=btoa(pw);}
-  else{if(!pw){alert('Şifre zorunlu!');return;}if(users.find(u=>u.id===id)){alert('Bu ID zaten var!');return;}users.push({id,pw:btoa(pw),name:nm,role});}
+  if(editingUid){const u=users.find(x=>x.id===editingUid);u.name=nm;u.role=role;if(pw)u.pw=hashPw(pw);}
+  else{if(!pw){alert('Şifre zorunlu!');return;}if(users.find(u=>u.id===id)){alert('Bu ID zaten var!');return;}users.push({id,pw:hashPw(pw),name:nm,role});}
   localStorage.setItem('sys_users',JSON.stringify(users));renderUserList();closeAddUser();
 }
 function delUser(id){if(!confirm(id+' silinsin mi?'))return;users=users.filter(u=>u.id!==id);localStorage.setItem('sys_users',JSON.stringify(users));renderUserList();}
@@ -2180,8 +2182,8 @@ function renderStokList(){
           <div style="font-size:0.72rem;color:var(--muted)">${u.birim||''} · KDV %${u.kdv||20}${u.barkod?' · Barkod: '+u.barkod:''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;margin-left:10px">
-          <div style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:800;color:var(--accent)">${u.fiyat?.toFixed(4)||'—'} TL</div>
-          <div style="font-size:0.68rem;color:var(--muted)">KDV dahil: ${((u.fiyat||0)*(1+(u.kdv||20)/100)).toFixed(4)} TL</div>
+          <div style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:800;color:var(--accent)">${u.fiyat?fmt(u.fiyat):'—'}</div>
+          <div style="font-size:0.68rem;color:var(--muted)">KDV dahil: ${fmt((u.fiyat||0)*(1+(u.kdv||20)/100))}</div>
         </div>
       </div>
     </div>
@@ -2322,6 +2324,7 @@ function drawPDFPage(doc,items,opts){return buildPDFDoc(items,opts);}
 //  UTILS
 // ═══════════════════════════════════════
 function fmt(n){return(n||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2})+' TL';}
+function fmtN(n,d){return(n||0).toLocaleString('tr-TR',{minimumFractionDigits:d,maximumFractionDigits:d});}
 function s(v){return String(v||'').trim();}
 function n(v){return parseFloat(v)||0;}
 function esc(v){return String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
