@@ -242,6 +242,11 @@ select option{background:var(--surface2)}
   </div>
   <div class="login-brand-title">SİPARİŞ PANELİ</div>
   <div class="login-sub">Devam etmek için giriş yapın</div>
+  <div id="l-reset-wrap" style="display:none;margin-bottom:12px">
+    <button onclick="resetAppData()" style="background:none;border:1px solid rgba(239,68,68,.4);color:#ef4444;border-radius:8px;padding:6px 14px;font-size:0.72rem;cursor:pointer">
+      🔄 Giriş sorunu yaşıyorum — Sıfırla
+    </button>
+  </div>
   <div class="login-card">
     <h2>🔐 Giriş Yap</h2>
     <div id="l-err" class="login-err">Hatalı kullanıcı ID veya şifre.</div>
@@ -825,13 +830,32 @@ let currentPDFDoc=null, currentPDFBlob=null;
 //  INIT
 // ═══════════════════════════════════════
 (function(){
+  // Şifre hash fonksiyonu - basit btoa
+  function _hp(pw){return btoa(String(pw));}
+  
   const su=localStorage.getItem('sys_users');
-  function _hp(pw){try{return btoa(unescape(encodeURIComponent(pw)));}catch(e){return btoa(pw);}}
-  users=su?JSON.parse(su):[
+  let storedUsers=null;
+  if(su){
+    try{
+      storedUsers=JSON.parse(su);
+      // Eski hex-format kullanıcıları tespit et ve temizle
+      // Hex format: 4+ karakter gruplari (örn: "0061006400" gibi uzun string)
+      const hasHexFormat=storedUsers.some(u=>u.pw&&u.pw.length>20&&/^[0-9a-f]+$/.test(u.pw)&&u.pw.length%4===0);
+      if(hasHexFormat){
+        console.log('Eski hex format tespit edildi, sıfırlanıyor...');
+        storedUsers=null;
+        localStorage.removeItem('sys_users');
+      }
+    }catch(e){storedUsers=null;}
+  }
+  
+  const defaultUsers=[
     {id:'admin',pw:_hp('admin123'),name:'Yönetici',role:'admin'},
     {id:'satis1',pw:_hp('1234'),name:'Satış 1',role:'user'},
   ];
-  if(!su)localStorage.setItem('sys_users',JSON.stringify(users));
+  
+  users=storedUsers&&storedUsers.length?storedUsers:defaultUsers;
+  if(!su||!storedUsers)localStorage.setItem('sys_users',JSON.stringify(users));
   const sd=localStorage.getItem('stokData');if(sd)stokData=JSON.parse(sd);
   const cd=localStorage.getItem('cariData');if(cd)cariData=JSON.parse(cd);
   const hd=localStorage.getItem('orderHistory');if(hd)orderHistory=JSON.parse(hd);
@@ -848,8 +872,17 @@ let currentPDFDoc=null, currentPDFBlob=null;
 //  LOGIN
 // ═══════════════════════════════════════
 function hashPw(pw){
-  // btoa ile şifrele (_hp ile aynı format — init ile uyumlu)
-  try{return btoa(unescape(encodeURIComponent(String(pw))));}catch(e){return btoa(String(pw));}
+  // Basit btoa - init'teki _hp ile TAM AYNI
+  return btoa(String(pw));
+}
+
+// Giriş sorunu yaşandığında kullanıcı verilerini sıfırla
+function resetAppData(){
+  if(!confirm('Kullanıcı verileri sıfırlanacak.\nAdmin şifresi: admin123\nDevam?'))return;
+  localStorage.removeItem('sys_users');
+  localStorage.removeItem('session');
+  alert('✅ Sıfırlandı! Şimdi admin / admin123 ile giriş yapabilirsiniz.');
+  location.reload();
 }
 function getUsers(){
   try{const s=localStorage.getItem('sys_users');return s?JSON.parse(s):users;}catch(e){return users;}
@@ -880,43 +913,55 @@ async function fetchUsersFromSheets(){
 
 async function doLogin(){
   const loginBtn=document.querySelector('.btn-login');
-  if(loginBtn)loginBtn.disabled=true;
   const loadingEl=document.getElementById('l-loading');
+  const errEl=document.getElementById('l-err');
+  
+  if(loginBtn)loginBtn.disabled=true;
   if(loadingEl)loadingEl.style.display='block';
+  errEl.style.display='none';
+  
   const id=document.getElementById('l-id').value.trim();
   const pw=document.getElementById('l-pw').value;
+  
   if(!id||!pw){
-    document.getElementById('l-err').textContent='Kullanıcı ID ve şifre gerekli.';
-    document.getElementById('l-err').style.display='block';
+    errEl.textContent='Kullanıcı ID ve şifre gerekli.';
+    errEl.style.display='block';
     if(loginBtn)loginBtn.disabled=false;
+    if(loadingEl)loadingEl.style.display='none';
     return;
   }
-  const errEl=document.getElementById('l-err');
-  errEl.style.display='none';
 
-  // Önce Google Sheets'ten dene
+  // Sheets URL varsa oradan dene (opsiyonel)
   const sheetUsers=await fetchUsersFromSheets();
   let allUsers;
   if(sheetUsers&&sheetUsers.length){
-    // Sheets başarılıysa local'e yedekle
     allUsers=sheetUsers;
-    localStorage.setItem('sys_users',JSON.stringify(allUsers));
     users=allUsers;
+    localStorage.setItem('sys_users',JSON.stringify(allUsers));
   } else {
-    // Sheets yoksa veya hata varsa localStorage fallback
     allUsers=getUsers();
   }
 
-  const pwHash=hashPw(pw);
-  const pwBtoa=btoa(pw); // eski format fallback
-  const u=allUsers.find(x=>x.id===id&&(x.pw===pwHash||x.pw===pwBtoa));
+  const pwHash=hashPw(pw); // btoa(pw)
+  // Tüm olası formatlarda kontrol et
+  const u=allUsers.find(x=>{
+    if(x.id!==id)return false;
+    return x.pw===pwHash          // btoa(pw) - standart
+        || x.pw===btoa(pw)        // direkt btoa
+        || x.pw===btoa(unescape(encodeURIComponent(pw))); // eski btoa+encode
+  });
+  
   if(loginBtn)loginBtn.disabled=false;
   if(loadingEl)loadingEl.style.display='none';
+  
   if(!u){
     const byId=allUsers.find(x=>x.id===id);
-    errEl.textContent=byId?'Şifre hatalı.':'Kullanıcı bulunamadı.';
+    errEl.textContent=byId?'Şifre hatalı. Lütfen tekrar deneyin.':'Kullanıcı bulunamadı.';
     errEl.style.display='block';
     document.getElementById('l-pw').value='';
+    // 2. hatadan sonra sıfırlama butonu göster
+    const rw=document.getElementById('l-reset-wrap');
+    if(rw)rw.style.display='block';
     return;
   }
   loginOK(u);
