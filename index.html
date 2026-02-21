@@ -830,32 +830,30 @@ let currentPDFDoc=null, currentPDFBlob=null;
 //  INIT
 // ═══════════════════════════════════════
 (function(){
-  // Şifre hash fonksiyonu - basit btoa
-  function _hp(pw){return btoa(String(pw));}
-  
-  const su=localStorage.getItem('sys_users');
-  let storedUsers=null;
-  if(su){
-    try{
-      storedUsers=JSON.parse(su);
-      // Eski hex-format kullanıcıları tespit et ve temizle
-      // Hex format: 4+ karakter gruplari (örn: "0061006400" gibi uzun string)
-      const hasHexFormat=storedUsers.some(u=>u.pw&&u.pw.length>20&&/^[0-9a-f]+$/.test(u.pw)&&u.pw.length%4===0);
-      if(hasHexFormat){
-        console.log('Eski hex format tespit edildi, sıfırlanıyor...');
-        storedUsers=null;
-        localStorage.removeItem('sys_users');
-      }
-    }catch(e){storedUsers=null;}
-  }
-  
-  const defaultUsers=[
-    {id:'admin',pw:_hp('admin123'),name:'Yönetici',role:'admin'},
-    {id:'satis1',pw:_hp('1234'),name:'Satış 1',role:'user'},
+  // Şifre: btoa(düz_metin)
+  const DEFAULT=[
+    {id:'admin',pw:btoa('admin123'),name:'Yönetici',role:'admin'},
+    {id:'satis1',pw:btoa('1234'),name:'Satış 1',role:'user'},
   ];
   
-  users=storedUsers&&storedUsers.length?storedUsers:defaultUsers;
-  if(!su||!storedUsers)localStorage.setItem('sys_users',JSON.stringify(users));
+  const su=localStorage.getItem('sys_users');
+  if(su){
+    try{
+      const parsed=JSON.parse(su);
+      // Eski hex formatı temizle (çok uzun, sadece hex karakter)
+      const isHex=parsed.some(u=>u.pw&&u.pw.length>30&&/^[0-9a-f]+$/.test(u.pw));
+      if(isHex||!parsed.length){
+        localStorage.removeItem('sys_users');
+        users=DEFAULT;
+        localStorage.setItem('sys_users',JSON.stringify(users));
+      } else {
+        users=parsed;
+      }
+    }catch(e){users=DEFAULT;localStorage.setItem('sys_users',JSON.stringify(users));}
+  } else {
+    users=DEFAULT;
+    localStorage.setItem('sys_users',JSON.stringify(users));
+  }
   const sd=localStorage.getItem('stokData');if(sd)stokData=JSON.parse(sd);
   const cd=localStorage.getItem('cariData');if(cd)cariData=JSON.parse(cd);
   const hd=localStorage.getItem('orderHistory');if(hd)orderHistory=JSON.parse(hd);
@@ -871,10 +869,7 @@ let currentPDFDoc=null, currentPDFBlob=null;
 // ═══════════════════════════════════════
 //  LOGIN
 // ═══════════════════════════════════════
-function hashPw(pw){
-  // Basit btoa - init'teki _hp ile TAM AYNI
-  return btoa(String(pw));
-}
+function hashPw(pw){ return btoa(String(pw)); }
 
 // Giriş sorunu yaşandığında kullanıcı verilerini sıfırla
 function resetAppData(){
@@ -911,13 +906,8 @@ async function fetchUsersFromSheets(){
   }
 }
 
-async function doLogin(){
-  const loginBtn=document.querySelector('.btn-login');
-  const loadingEl=document.getElementById('l-loading');
+function doLogin(){
   const errEl=document.getElementById('l-err');
-  
-  if(loginBtn)loginBtn.disabled=true;
-  if(loadingEl)loadingEl.style.display='block';
   errEl.style.display='none';
   
   const id=document.getElementById('l-id').value.trim();
@@ -926,40 +916,26 @@ async function doLogin(){
   if(!id||!pw){
     errEl.textContent='Kullanıcı ID ve şifre gerekli.';
     errEl.style.display='block';
-    if(loginBtn)loginBtn.disabled=false;
-    if(loadingEl)loadingEl.style.display='none';
     return;
   }
 
-  // Sheets URL varsa oradan dene (opsiyonel)
-  const sheetUsers=await fetchUsersFromSheets();
-  let allUsers;
-  if(sheetUsers&&sheetUsers.length){
-    allUsers=sheetUsers;
-    users=allUsers;
-    localStorage.setItem('sys_users',JSON.stringify(allUsers));
-  } else {
-    allUsers=getUsers();
-  }
-
-  const pwHash=hashPw(pw); // btoa(pw)
-  // Tüm olası formatlarda kontrol et
+  const allUsers=getUsers();
+  const pwHash=btoa(pw);
+  
   const u=allUsers.find(x=>{
     if(x.id!==id)return false;
-    return x.pw===pwHash          // btoa(pw) - standart
-        || x.pw===btoa(pw)        // direkt btoa
-        || x.pw===btoa(unescape(encodeURIComponent(pw))); // eski btoa+encode
+    // Tüm formatlarda kontrol
+    try{
+      return x.pw===pwHash
+          || x.pw===btoa(unescape(encodeURIComponent(pw)));
+    }catch(e){return x.pw===pwHash;}
   });
-  
-  if(loginBtn)loginBtn.disabled=false;
-  if(loadingEl)loadingEl.style.display='none';
   
   if(!u){
     const byId=allUsers.find(x=>x.id===id);
-    errEl.textContent=byId?'Şifre hatalı. Lütfen tekrar deneyin.':'Kullanıcı bulunamadı.';
+    errEl.textContent=byId?'Şifre hatalı.':'Kullanıcı bulunamadı.';
     errEl.style.display='block';
     document.getElementById('l-pw').value='';
-    // 2. hatadan sonra sıfırlama butonu göster
     const rw=document.getElementById('l-reset-wrap');
     if(rw)rw.style.display='block';
     return;
@@ -2394,7 +2370,7 @@ function delUser(id){
 async function syncUsersFromSheets(){
   const url=localStorage.getItem('gs_users_url')||'';
   if(!url){
-    showUserSyncResult('error','Önce Ayarlar'ta Kullanıcı Sheets URL'sini kaydedin.');
+    showUserSyncResult('error','Önce Ayarlar bölümünde Kullanıcı Sheets URL kaydedin.');
     return;
   }
   showUserSyncResult('loading','Yükleniyor...');
@@ -2410,7 +2386,7 @@ async function syncUsersFromSheets(){
       if(!id||!pw)return null;
       return{id,pw:hashPw(pw),name,role};
     }).filter(Boolean);
-    if(!loaded.length){showUserSyncResult('error','Sheets'te kullanıcı bulunamadı. Sütunlar: KullaniciID, Sifre, Ad, Rol');return;}
+    if(!loaded.length){showUserSyncResult('error','Sheets sekmesinde kullanici bulunamadi. Sutunlar: KullaniciID, Sifre, Ad, Rol');return;}
     users=loaded;
     localStorage.setItem('sys_users',JSON.stringify(users));
     renderUserList();
@@ -2437,7 +2413,7 @@ function pushUsersToSheets(){
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Kullanicilar');
   XLSX.writeFile(wb,'kullanicilar_sheets_icin.xlsx');
-  alert('📥 Excel indirildi!\n\n✅ Yapılacaklar:\n1. "Sifre" sütununu gerçek şifrelerle doldurun\n2. Google Sheets'teki "Kullanicilar" sekmesine yapıştırın\n3. Ayarlar'ta URL'yi kaydedin\n4. "Sheets'ten Yükle" butonuna basın\n\nNOT: Sheets'te şifreler düz metin tutulur, uygulama otomatik hash'ler.');
+  alert('Excel indirildi! Sifre sutununu doldurun, Sheets Kullanicilar sekmesine yapistirun, Ayarlar\'da URL kaydedin, Sheets\'ten Yukle butonuna basin.');
 }
 
 // Hızlı şifre ile direkt Sheets şablonu oluştur
@@ -2452,7 +2428,7 @@ function createUserSheetsTemplate(){
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Kullanicilar');
   XLSX.writeFile(wb,'kullanicilar_ornek.xlsx');
-  alert('📥 Örnek kullanıcı şablonu indirildi!\n\nBu dosyayı Google Sheets\'e yükleyin:\n1. Sheets\'te yeni sekme → "Kullanicilar" adı verin\n2. Dosyayı import edin\n3. Herkese okuma izni verin\n4. Ayarlar'ta URL'yi kaydedin');
+  alert('Ornek sablon indirildi! Sheets Kullanicilar sekmesine yukleyin, Ayarlar\'da URL kaydedin.');
 }
 
 function showUserSyncResult(type,msg){
