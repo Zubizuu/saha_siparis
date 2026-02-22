@@ -299,7 +299,12 @@ select option{background:var(--surface2)}
 
     <!-- Ürün Ekle -->
     <div class="card">
-      <div class="card-title">🔍 Ürün Ekle</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="card-title" style="margin:0">🔍 Ürün Ekle</div>
+        <select id="sip-kategori" onchange="searchUrun()" style="padding:6px 10px;font-size:0.78rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);max-width:140px">
+          <option value="">Tüm Kategoriler</option>
+        </select>
+      </div>
 
       <!-- 4 Mod Seçimi -->
       <div class="mode-tabs" id="siparis-modes">
@@ -324,13 +329,30 @@ select option{background:var(--surface2)}
           <div class="up-price" id="uf-fiyat"></div>
         </div>
         <div class="r3">
-          <div><div class="oi-lbl">Miktar</div><input type="number" id="uf-m" value="1" min="0.001" step="any" inputmode="decimal"></div>
-          <div><div class="oi-lbl">İsk1 %</div><input type="number" id="uf-i" value="0" min="0" max="100" inputmode="decimal"></div>
-          <div><div class="oi-lbl">KDV %</div><input type="number" id="uf-k" value="20" min="0" inputmode="decimal"></div>
+          <div><div class="oi-lbl">Miktar</div><input type="number" id="uf-m" value="1" min="0.001" step="any" inputmode="decimal" oninput="updateUfNetPrice()"></div>
+          <div><div class="oi-lbl">İsk1 %</div><input type="number" id="uf-i" value="0" min="0" max="100" inputmode="decimal" oninput="updateUfNetPrice()"></div>
+          <div><div class="oi-lbl">KDV %</div><input type="number" id="uf-k" value="20" min="0" inputmode="decimal" oninput="updateUfNetPrice()"></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-          <div><div class="oi-lbl">İsk2 %</div><input type="number" id="uf-i2" value="0" min="0" max="100" inputmode="decimal"></div>
-          <div><div class="oi-lbl" style="color:var(--success)">Birim Fiyat</div><div id="uf-netprice" style="padding:12px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.83rem;color:var(--success)">—</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div><div class="oi-lbl">İsk2 %</div><input type="number" id="uf-i2" value="0" min="0" max="100" inputmode="decimal" oninput="updateUfNetPrice()"></div>
+          <div><div class="oi-lbl" style="color:var(--success)">Net Birim Fiyat</div><div id="uf-netprice" style="padding:12px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.83rem;color:var(--success)">—</div></div>
+        </div>
+        <!-- Bedelsiz Miktar -->
+        <div style="background:rgba(245,166,35,.07);border:1px solid rgba(245,166,35,.25);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer;user-select:none">
+              <input type="checkbox" id="uf-bedelsiz-chk" onchange="toggleBedelsiz()" style="width:16px;height:16px;accent-color:var(--accent)">
+              <span style="color:var(--accent);font-weight:600">🎁 Bedelsiz Ürün Ekle</span>
+            </label>
+          </div>
+          <div id="uf-bedelsiz-wrap" style="display:none">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div><div class="oi-lbl">Bedelsiz Miktar</div><input type="number" id="uf-bm" value="0" min="0" step="any" inputmode="decimal" placeholder="0"></div>
+              <div style="display:flex;align-items:flex-end;padding-bottom:2px">
+                <div style="font-size:0.72rem;color:var(--muted);line-height:1.4">Ayrı satır olarak<br>0 TL fiyatla eklenir</div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="flex g8 mt12">
           <button class="btn btn-primary" style="flex:1" onclick="addToOrder()">+ Sepete Ekle</button>
@@ -694,10 +716,13 @@ select option{background:var(--surface2)}
     <div class="sec">📦 Stok Kartları</div>
     <!-- Arama & Filtre -->
     <div class="card" style="padding:13px;margin-bottom:10px">
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
         <input type="text" id="sl-search" placeholder="Ürün adı, kod, barkod..." oninput="renderStokList()" style="flex:1;padding:9px 12px;font-size:0.83rem">
         <button class="btn btn-primary btn-sm" onclick="openStokModal(null)">+ Ekle</button>
       </div>
+      <select id="sl-kategori" onchange="renderStokList()" style="width:100%;padding:8px 10px;font-size:0.8rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);margin-bottom:8px">
+        <option value="">📂 Tüm Kategoriler</option>
+      </select>
       <div style="font-size:0.72rem;color:var(--muted)" id="sl-count">— ürün</div>
     </div>
     <div id="sl-list"></div>
@@ -741,6 +766,7 @@ select option{background:var(--surface2)}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <div class="fg" style="margin:0"><label>Fiyat *</label><input type="number" id="sm-fiyat" placeholder="0.0000" step="0.0001" min="0"></div>
       <div class="fg" style="margin:0"><label>KDV %</label><input type="number" id="sm-kdv" placeholder="20" value="20" min="0"></div>
+      <div class="fg"><label>Kategori</label><input type="text" id="sm-kategori" placeholder="örn. Ambalaj, Kağıt..." list="sm-kat-list" autocomplete="off" style="width:100%"><datalist id="sm-kat-list"></datalist></div>
     </div>
     <div class="flex g8">
       <button class="btn btn-primary" style="flex:1" onclick="saveStokModal()">💾 Kaydet</button>
@@ -1288,14 +1314,15 @@ function csvSplitLine(line){
 function csvRowToStok(row){
   const k=Object.keys(row);
   return{
-    kod:   s(row.Kod||row.UrunKodu||row['Ürün Kodu']||row[k[0]]),
+    kod:      s(row.Kod||row.UrunKodu||row['Ürün Kodu']||row[k[0]]),
     pratikKod:s(row.PratikKod||row['Pratik Kod']||row.pratikKod||row[k[1]]),
-    barkod:s(row.Barkod||row.barkod||row[k[2]]),
-    ad:    s(row.Ad||row.UrunAdi||row['Ürün Adı']||row[k[3]]),
-    birim: s(row.Birim||row[k[4]])||'Adet',
-    fiyat: n(row.Fiyat||row.BirimFiyat||row[k[5]]),
-    kdv:   n(row.KDV||row.Kdv||row[k[6]])||20,
-    stokKod:s(row.StokKodu||row['Stok Kodu']||row.stokKod||row[k[0]]),
+    barkod:   s(row.Barkod||row.barkod||row[k[2]]),
+    ad:       s(row.Ad||row.UrunAdi||row['Ürün Adı']||row[k[3]]),
+    birim:    s(row.Birim||row[k[4]])||'Adet',
+    fiyat:    n(row.Fiyat||row.BirimFiyat||row[k[5]]),
+    kdv:      n(row.KDV||row.Kdv||row[k[6]])||20,
+    stokKod:  s(row.StokKodu||row['Stok Kodu']||row.stokKod||row[k[0]]),
+    kategori: s(row.Kategori||row.kategori||row['Kategori']||row[k[7]])||'',
   };
 }
 
@@ -1401,6 +1428,9 @@ async function testAndSyncSheet(type, showAlert=true){
       localStorage.setItem('cariData',JSON.stringify(cariData));
       localStorage.setItem('gs_cari_time',Date.now().toString());
       initSiparisFilters();
+      // Stok kategori dropdown'larını sıfırla (yeniden populate edilsin)
+      const slKat=document.getElementById('sl-kategori');
+      if(slKat)delete slKat.dataset.populated;
       setStatus(true,`${parsed.length} cari yüklendi`);
       if(showAlert)alert(`✅ ${parsed.length} cari Sheets'ten yüklendi!`);
     }
@@ -1673,6 +1703,14 @@ function initSiparisFilters(){
   const ilSel=document.getElementById('sip-il');
   const ilceSel=document.getElementById('sip-ilce');
   if(ilSel&&ilceSel)populateIlIlce(ilSel,ilceSel,cariData);
+  // Kategori dropdown'ı doldur
+  const katSel=document.getElementById('sip-kategori');
+  if(katSel){
+    const mevcut=katSel.value;
+    const kategoriler=[...new Set(stokData.map(u=>u.kategori||'').filter(Boolean))].sort();
+    katSel.innerHTML='<option value="">Tüm Kategoriler</option>'+
+      kategoriler.map(k=>`<option value="${k}"${k===mevcut?' selected':''}>${k}</option>`).join('');
+  }
 }
 function searchCari(){
   const q=(document.getElementById('c-in')?.value||'').toLowerCase().trim();
@@ -1713,15 +1751,21 @@ function clearCari(){
 function searchUrun(){
   const q=document.getElementById('u-in').value;
   const dd=document.getElementById('u-dd');
-  if(!q.trim()){dd.classList.remove('open');return;}
-  const res=filterByMode(q,siparisMode);
+  const selKat=(document.getElementById('sip-kategori')?.value)||'';
+  if(!q.trim()&&!selKat){dd.classList.remove('open');return;}
+  let res=filterByMode(q,siparisMode);
+  if(selKat)res=res.filter(u=>(u.kategori||'')==selKat);
+  if(!q.trim()&&selKat){
+    // Sadece kategori seçiliyse tüm ürünleri göster (max 30)
+    res=stokData.filter(u=>(u.kategori||'')==selKat).slice(0,30);
+  }
   const fieldLabel=modeLabel(siparisMode);
   dd.innerHTML=res.length?res.map(u=>`<div class="ddi" onclick="pickUrun('${esc(u.kod)}')">
-    <div class="dic">${fieldLabel}: ${siparisMode==='pratik'?u.pratikKod:siparisMode==='stok'?u.stokKod:siparisMode==='barkod'?u.barkod:u.kod}</div>
+    <div class="dic">${fieldLabel}: ${siparisMode==='pratik'?u.pratikKod:siparisMode==='stok'?u.stokKod:siparisMode==='barkod'?u.barkod:u.kod}${u.kategori?` <span style="background:rgba(245,166,35,.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-size:0.68rem;margin-left:4px">${u.kategori}</span>`:''}</div>
     <div class="din">${u.ad}</div>
     <div class="dip">${fmt(u.fiyat)} / ${u.birim}</div>
   </div>`).join(''):'<div class="ddi tm" style="font-size:.8rem">Bulunamadı</div>';
-  dd.classList.add('open');
+  dd.classList.toggle('open',res.length>0);
 }
 
 function handleUrunKey(e){
@@ -1743,6 +1787,13 @@ function pickUrun(kod){
   document.getElementById('uf-k').value=selectedUrun.kdv;
   document.getElementById('uf-m').value=1;
   document.getElementById('u-form').style.display='block';
+  // Bedelsiz alanı sıfırla
+  const bChk=document.getElementById('uf-bedelsiz-chk');
+  const bWrap=document.getElementById('uf-bedelsiz-wrap');
+  const bm=document.getElementById('uf-bm');
+  if(bChk)bChk.checked=false;
+  if(bWrap)bWrap.style.display='none';
+  if(bm)bm.value=0;
   updateUfNetPrice();
   setTimeout(()=>document.getElementById('uf-m').select(),80);
 }
@@ -1767,10 +1818,24 @@ function addToOrder(){
   const i=parseFloat(document.getElementById('uf-i').value)||0;
   const i2=parseFloat(document.getElementById('uf-i2').value)||0;
   const k=parseFloat(document.getElementById('uf-k').value)||20;
-  const ex=orderItems.find(x=>x.kod===selectedUrun.kod&&x.iskonto===i&&x.iskonto2===i2);
+  const bm=parseFloat(document.getElementById('uf-bm')?.value)||0;
+  const base={kod:selectedUrun.kod,pratikKod:selectedUrun.pratikKod||'',stokKod:selectedUrun.stokKod||selectedUrun.kod,barkod:selectedUrun.barkod||'',ad:selectedUrun.ad,birim:selectedUrun.birim,kategori:selectedUrun.kategori||''};
+  // Normal satır
+  const ex=orderItems.find(x=>x.kod===base.kod&&x.iskonto===i&&x.iskonto2===i2&&!x.bedelsiz);
   if(ex)ex.miktar=Math.round((ex.miktar+m)*1000)/1000;
-  else orderItems.push({id:Date.now(),kod:selectedUrun.kod,pratikKod:selectedUrun.pratikKod||'',stokKod:selectedUrun.stokKod||selectedUrun.kod,barkod:selectedUrun.barkod||'',ad:selectedUrun.ad,birim:selectedUrun.birim,fiyat:selectedUrun.fiyat,miktar:m,iskonto:i,iskonto2:i2,kdv:k});
+  else orderItems.push({...base,id:Date.now(),fiyat:selectedUrun.fiyat,miktar:m,iskonto:i,iskonto2:i2,kdv:k,bedelsiz:false});
+  // Bedelsiz satır (varsa)
+  if(bm>0){
+    orderItems.push({...base,id:Date.now()+1,fiyat:0,miktar:bm,iskonto:0,iskonto2:0,kdv:0,bedelsiz:true,ad:selectedUrun.ad+' 🎁 BEDELSİZ'});
+  }
   cancelUrun();renderOrder();
+}
+
+function toggleBedelsiz(){
+  const chk=document.getElementById('uf-bedelsiz-chk');
+  const wrap=document.getElementById('uf-bedelsiz-wrap');
+  if(wrap)wrap.style.display=chk?.checked?'block':'none';
+  if(chk?.checked)setTimeout(()=>document.getElementById('uf-bm')?.focus(),80);
 }
 function removeItem(id){orderItems=orderItems.filter(x=>x.id!==id);renderOrder();}
 function updateItem(id,f,v){const it=orderItems.find(x=>x.id===id);if(it){it[f]=parseFloat(v)||0;renderOrder();}}
@@ -1783,10 +1848,21 @@ function renderOrder(){
   list.innerHTML=orderItems.map(it=>{
     const i2=it.iskonto2||0;
     const g=it.fiyat*it.miktar,d1=g*(it.iskonto/100),after1=g-d1,d2=after1*(i2/100),d=d1+d2,net=g-d,k=net*(it.kdv/100),tot=net+k;
-    gross+=g;disc+=d;kdvS+=k;
+    if(!it.bedelsiz){gross+=g;disc+=d;kdvS+=k;}
     const iskLabel=i2>0?`İsk1:${it.iskonto}% + İsk2:${i2}%`:`İsk:${it.iskonto}%`;
+    if(it.bedelsiz){
+      // Bedelsiz satır — sade gösterim, düzenleme yok
+      return`<div class="oi" style="border:1px solid rgba(245,166,35,.3);background:rgba(245,166,35,.04)">
+        <div class="oi-top">
+          <div class="oi-name" style="color:var(--accent)">${it.ad}</div>
+          <button class="oi-del" onclick="removeItem(${it.id})">🗑</button>
+        </div>
+        <div class="oi-code">Stok: ${it.stokKod} · Miktar: ${it.miktar} ${it.birim}</div>
+        <div class="oi-total" style="color:var(--accent)">BEDELSİZ — 0,00 ₺</div>
+      </div>`;
+    }
     return`<div class="oi">
-      <div class="oi-top"><div class="oi-name">${it.ad}</div><button class="oi-del" onclick="removeItem(${it.id})">🗑</button></div>
+      <div class="oi-top"><div class="oi-name">${it.ad}${it.kategori?`<span style="font-size:0.65rem;background:rgba(245,166,35,.12);color:var(--accent);border-radius:4px;padding:1px 5px;margin-left:6px;font-weight:400">${it.kategori}</span>`:''}</div><button class="oi-del" onclick="removeItem(${it.id})">🗑</button></div>
       <div class="oi-code">Stok: ${it.stokKod}${it.pratikKod?' · Pratik: '+it.pratikKod:''}</div>
       <div class="r3">
         <div><div class="oi-lbl">Miktar</div><input type="number" value="${it.miktar}" min="0" step="any" inputmode="decimal" onchange="updateItem(${it.id},'miktar',this.value)"></div>
@@ -2727,17 +2803,28 @@ function dlCari(){
 // ═══════════════════════════════════════
 function renderStokList(){
   const q=(document.getElementById('sl-search')?.value||'').toLowerCase().trim();
+  const selKat=(document.getElementById('sl-kategori')?.value)||'';
   const el=document.getElementById('sl-list');
   if(!el)return;
-  const list=q?stokData.filter(u=>u.ad.toLowerCase().includes(q)||u.kod.toLowerCase().includes(q)||(u.barkod||'').toLowerCase().includes(q)||(u.pratikKod||'').toLowerCase().includes(q)||(u.stokKod||'').toLowerCase().includes(q)):stokData;
+  // Kategori dropdown güncelle
+  const katSel=document.getElementById('sl-kategori');
+  if(katSel&&!katSel.dataset.populated){
+    const kategoriler=[...new Set(stokData.map(u=>u.kategori||'').filter(Boolean))].sort();
+    katSel.innerHTML='<option value="">📂 Tüm Kategoriler</option>'+
+      kategoriler.map(k=>`<option value="${k}"${k===selKat?' selected':''}>${k}</option>`).join('');
+    katSel.dataset.populated='1';
+  }
+  let list=stokData;
+  if(q)list=list.filter(u=>u.ad.toLowerCase().includes(q)||u.kod.toLowerCase().includes(q)||(u.barkod||'').toLowerCase().includes(q)||(u.pratikKod||'').toLowerCase().includes(q)||(u.stokKod||'').toLowerCase().includes(q));
+  if(selKat)list=list.filter(u=>(u.kategori||'')==selKat);
   const cEl=document.getElementById('sl-count');
-  if(cEl)cEl.textContent=list.length+' ürün'+(q?' (filtreli)':'');
+  if(cEl)cEl.textContent=list.length+' ürün'+(q||selKat?' (filtreli)':'');
   if(!list.length){el.innerHTML='<div class="empty"><div class="ei">📦</div><p>Stok bulunamadı.</p></div>';return;}
   el.innerHTML=list.map(u=>`
     <div class="card" style="padding:12px;margin-bottom:8px;cursor:pointer" onclick="openStokModal('${esc(u.kod)}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="flex:1;min-width:0">
-          <div style="font-family:monospace;font-size:0.7rem;color:var(--accent);margin-bottom:2px">${u.kod}${u.pratikKod?' · '+u.pratikKod:''}</div>
+          <div style="font-family:monospace;font-size:0.7rem;color:var(--accent);margin-bottom:2px">${u.kod}${u.pratikKod?' · '+u.pratikKod:''}${u.kategori?` <span style="background:rgba(245,166,35,.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-size:0.65rem">${u.kategori}</span>`:''}</div>
           <div style="font-weight:600;font-size:0.88rem;margin-bottom:3px;line-height:1.3">${u.ad}</div>
           <div style="font-size:0.72rem;color:var(--muted)">${u.birim||''} · KDV %${u.kdv||20}${u.barkod?' · Barkod: '+u.barkod:''}</div>
         </div>
@@ -2763,6 +2850,10 @@ function openStokModal(kod){
   document.getElementById('sm-birim').value=u?.birim||'';
   document.getElementById('sm-fiyat').value=u?.fiyat||'';
   document.getElementById('sm-kdv').value=u?.kdv??20;
+  const smKat=document.getElementById('sm-kategori');
+  if(smKat)smKat.value=u?.kategori||'';
+  const smDl=document.getElementById('sm-kat-list');
+  if(smDl){const kats=[...new Set(stokData.map(x=>x.kategori||'').filter(Boolean))].sort();smDl.innerHTML=kats.map(k=>'<option value="'+k+'">').join('');}
   document.getElementById('sm-del-wrap').style.display=u?'block':'none';
   document.getElementById('stok-modal').classList.add('open');
 }
@@ -2780,6 +2871,7 @@ function saveStokModal(){
     birim:document.getElementById('sm-birim').value.trim()||'Adet',
     fiyat,
     kdv:parseFloat(document.getElementById('sm-kdv').value)||20,
+    kategori:document.getElementById('sm-kategori')?.value.trim()||'',
   };
   if(editingStokKod){
     const idx=stokData.findIndex(x=>x.kod===editingStokKod);
