@@ -326,13 +326,16 @@ select option{background:var(--surface2)}
         <div class="urun-preview">
           <div class="up-code" id="uf-kod"></div>
           <div class="up-name" id="uf-ad"></div>
-          <div class="up-price" id="uf-fiyat"></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div class="up-price" id="uf-fiyat"></div>
+            <span id="uf-kdv-badge" style="font-size:0.72rem;background:rgba(245,166,35,.15);color:var(--accent);border:1px solid rgba(245,166,35,.3);border-radius:20px;padding:2px 10px;font-weight:600"></span>
+          </div>
         </div>
-        <div class="r3">
+        <div class="r3" style="grid-template-columns:1fr 1fr">
           <div><div class="oi-lbl">Miktar</div><input type="number" id="uf-m" value="1" min="0.001" step="any" inputmode="decimal" oninput="updateUfNetPrice()"></div>
           <div><div class="oi-lbl">İsk1 %</div><input type="number" id="uf-i" value="0" min="0" max="100" inputmode="decimal" oninput="updateUfNetPrice()"></div>
-          <div><div class="oi-lbl">KDV %</div><input type="number" id="uf-k" value="20" min="0" inputmode="decimal" oninput="updateUfNetPrice()"></div>
         </div>
+        <input type="hidden" id="uf-k" value="20">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
           <div><div class="oi-lbl">İsk2 %</div><input type="number" id="uf-i2" value="0" min="0" max="100" inputmode="decimal" oninput="updateUfNetPrice()"></div>
           <div><div class="oi-lbl" style="color:var(--success)">Net Birim Fiyat</div><div id="uf-netprice" style="padding:12px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.83rem;color:var(--success)">—</div></div>
@@ -887,9 +890,10 @@ let currentPDFDoc=null, currentPDFBlob=null;
 // ═══════════════════════════════════════
 (function(){
   // Varsayılan kullanıcılar (hiç kayıt yoksa)
+  const _h=pw=>{try{return btoa(unescape(encodeURIComponent(String(pw))));}catch(e){return btoa(String(pw));}};
   const DEFAULT=[
-    {id:'admin',pw:btoa('admin123'),name:'Yönetici',role:'admin'},
-    {id:'satis1',pw:btoa('1234'),name:'Satış 1',role:'user'},
+    {id:'admin',pw:_h('admin123'),name:'Yönetici',role:'admin'},
+    {id:'satis1',pw:_h('1234'),name:'Satış 1',role:'user'},
   ];
 
   const su=localStorage.getItem('sys_users');
@@ -950,7 +954,10 @@ let currentPDFDoc=null, currentPDFBlob=null;
 // ═══════════════════════════════════════
 //  LOGIN
 // ═══════════════════════════════════════
-function hashPw(pw){ return btoa(String(pw)); }
+function hashPw(pw){
+  try{return btoa(unescape(encodeURIComponent(String(pw))));}
+  catch(e){return btoa(String(pw).replace(/[^\x00-\x7F]/g,c=>'_'));}
+}
 
 // Giriş sorunu yaşandığında kullanıcı verilerini sıfırla
 function resetAppData(){
@@ -1868,6 +1875,8 @@ function pickUrun(kod){
   document.getElementById('uf-kod').textContent=`${modeLabel(siparisMode)}: ${displayCode} · Stok: ${selectedUrun.stokKod||selectedUrun.kod}`;
   document.getElementById('uf-ad').textContent=selectedUrun.ad;
   document.getElementById('uf-fiyat').textContent=fmt(selectedUrun.fiyat)+' / '+selectedUrun.birim;
+  const kdvBadge=document.getElementById('uf-kdv-badge');
+  if(kdvBadge)kdvBadge.textContent='KDV %'+(selectedUrun.kdv||20);
   document.getElementById('uf-i').value=selectedCari?selectedCari.iskonto:0;
   document.getElementById('uf-i2').value=0;
   document.getElementById('uf-k').value=selectedUrun.kdv;
@@ -1967,6 +1976,7 @@ function renderOrder(){
   const araBase=gross-disc;
   const sipIskTutar=araBase*(sipIsk/100);
   const ara=araBase-sipIskTutar;
+  const kdvNet=kdvS*(1-sipIsk/100);
   const sipIskRow=document.getElementById('t-sipisk-row');
   if(sipIskRow)sipIskRow.style.display=sipIsk>0?'flex':'none';
   const sipIskEl=document.getElementById('t-sipisk');
@@ -1974,8 +1984,8 @@ function renderOrder(){
   document.getElementById('t-t').textContent=fmt(gross);
   document.getElementById('t-i').textContent='- '+fmt(disc);
   document.getElementById('t-a').textContent=fmt(ara);
-  document.getElementById('t-k').textContent=fmt(kdvS);
-  document.getElementById('t-g').textContent=fmt(ara+kdvS);
+  document.getElementById('t-k').textContent=fmt(kdvNet);
+  document.getElementById('t-g').textContent=fmt(ara+kdvNet);
 }
 function clearOrder(){if(!confirm('Siparişi temizle?'))return;orderItems=[];clearCari();document.getElementById('o-not').value='';if(document.getElementById('o-sipisk'))document.getElementById('o-sipisk').value='0';renderOrder();}
 function calcTotal(){
@@ -1989,9 +1999,13 @@ function calcTotal(){
 // ═══════════════════════════════════════
 async function saveOrder(){
   if(!orderItems.length){alert('Sipariş boş!');return;}
-  const gross=orderItems.reduce((s,i)=>s+i.fiyat*i.miktar,0);
-  const ara=orderItems.reduce((s,i)=>s+i.fiyat*i.miktar*(1-i.iskonto/100),0);
-  const kdvT=orderItems.reduce((s,i)=>s+i.fiyat*i.miktar*(1-i.iskonto/100)*(i.kdv/100),0);
+  const sipIsk=parseFloat(document.getElementById('o-sipisk')?.value)||0;
+  const gross=orderItems.filter(i=>!i.bedelsiz).reduce((s,i)=>s+i.fiyat*i.miktar,0);
+  const disc=orderItems.filter(i=>!i.bedelsiz).reduce((s,i)=>{const i2=i.iskonto2||0;const g=i.fiyat*i.miktar,d1=g*(i.iskonto/100),after1=g-d1,d2=after1*(i2/100);return s+d1+d2;},0);
+  const araBase=gross-disc;
+  const sipIskTutar=araBase*(sipIsk/100);
+  const ara=araBase-sipIskTutar;
+  const kdvT=orderItems.filter(i=>!i.bedelsiz).reduce((s,i)=>{const i2=i.iskonto2||0;const net=i.fiyat*i.miktar*(1-i.iskonto/100)*(1-(i2)/100);return s+net*(i.kdv/100);},0)*(1-sipIsk/100);
   const o={
     id:'SP'+Date.now().toString().slice(-8),
     tarih:new Date().toLocaleString('tr-TR'),
