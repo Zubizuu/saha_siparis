@@ -251,7 +251,7 @@ select option{background:var(--surface2)}
     <h2>🔐 Giriş Yap</h2>
     <div id="l-err" class="login-err">Hatalı kullanıcı ID veya şifre.</div>
     <div id="l-loading" style="display:none;font-size:0.75rem;color:var(--accent);margin-bottom:8px;text-align:center">⏳ Kullanıcılar kontrol ediliyor...</div>
-    <div class="lf"><label>Kullanıcı ID</label><input type="text" id="l-id" placeholder="Kullanıcı adınız..." autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="lf"><label>Kullanıcı ID</label><input type="text" id="l-id" placeholder="Kullanıcı adınız..." autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <div class="lf"><label>Şifre</label><input type="password" id="l-pw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="btn-login" onclick="doLogin()">Giriş Yap →</button>
   </div>
@@ -944,7 +944,7 @@ let currentPDFDoc=null, currentPDFBlob=null;
   const hd=localStorage.getItem('orderHistory');if(hd)orderHistory=JSON.parse(hd);
   const fd=localStorage.getItem('firmaData');if(fd)firma=JSON.parse(fd);
   const sess=localStorage.getItem('session');
-  if(sess){const u=users.find(x=>x.id===sess);if(u){loginOK(u);return;}}
+  if(sess){const u=users.find(x=>(x.id||'').toLowerCase()===sess.toLowerCase());if(u){loginOK(u);return;}}
   document.addEventListener('click',e=>{
     if(!e.target.closest('.sw')&&!e.target.closest('.cam-btn'))
       document.querySelectorAll('.dd').forEach(d=>d.classList.remove('open'));
@@ -1055,14 +1055,17 @@ function doLogin(){
 function _tryLogin(id,pw,errEl){
   errEl.style.cssText='display:none';
   const allUsers=getUsers();
-  const pwHash=btoa(pw);
+  const idLower=id.toLowerCase().trim();
+  const pwHash=hashPw(pw);
+  // ID karşılaştırması büyük/küçük harf duyarsız
   const u=allUsers.find(x=>{
-    if(x.id!==id)return false;
-    try{return x.pw===pwHash||x.pw===btoa(unescape(encodeURIComponent(pw)));}
+    if((x.id||'').toLowerCase().trim()!==idLower)return false;
+    // Yeni hash yöntemi ile dene, eski btoa ile de dene (eski kayıtlar için)
+    try{return x.pw===pwHash||x.pw===btoa(pw);}
     catch(e){return x.pw===pwHash;}
   });
   if(!u){
-    const byId=allUsers.find(x=>x.id===id);
+    const byId=allUsers.find(x=>(x.id||'').toLowerCase().trim()===idLower);
     errEl.textContent=byId?'Şifre hatalı.':'Kullanıcı bulunamadı.';
     errEl.style.cssText='display:block';
     document.getElementById('l-pw').value='';
