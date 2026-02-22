@@ -636,7 +636,7 @@ select option{background:var(--surface2)}
       <div class="fg" id="gs-stok-wrap">
         <label>📦 Stok Sayfası URL</label>
         <div style="display:flex;gap:6px">
-          <input type="url" id="gs-stok-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1" value="https://docs.google.com/spreadsheets/d/1tJTeDN386UUJhEZI4f21bK-w33-vwZR8h73gh9OQsj8/export?format=csv&gid=0">
+          <input type="url" id="gs-stok-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1" value="https://docs.google.com/spreadsheets/d/1tJTeDN386UUJhEZI4f21bK-w33-vwZR8h73gh9OQsj8/gviz/tq?tqx=out:csv">
           <button class="btn btn-secondary btn-xs" onclick="testAndSyncSheet('stok')" title="Test et ve çek" style="flex-shrink:0;white-space:nowrap">🔄 Çek</button>
         </div>
         <div id="gs-stok-status" style="display:none;font-size:0.72rem;margin-top:4px;padding:5px 9px;border-radius:6px"></div>
@@ -647,20 +647,21 @@ select option{background:var(--surface2)}
       <div class="fg" id="gs-cari-wrap">
         <label>👥 Cari Sayfası URL</label>
         <div style="display:flex;gap:6px">
-          <input type="url" id="gs-cari-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1" value="https://docs.google.com/spreadsheets/d/1B2m6kWtLpvZOu5hbjJBywFj7uIoPREc7EvYUxKGoPTM/export?format=csv&gid=0">
+          <input type="url" id="gs-cari-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1" value="https://docs.google.com/spreadsheets/d/1B2m6kWtLpvZOu5hbjJBywFj7uIoPREc7EvYUxKGoPTM/gviz/tq?tqx=out:csv">
           <button class="btn btn-secondary btn-xs" onclick="testAndSyncSheet('cari')" title="Test et ve çek" style="flex-shrink:0;white-space:nowrap">🔄 Çek</button>
         </div>
         <div id="gs-cari-status" style="display:none;font-size:0.72rem;margin-top:4px;padding:5px 9px;border-radius:6px"></div>
         <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Aynı dosyada farklı sekme olabilir — sekme URL'sini kopyalayın</div>
       </div>
 
-      <!-- KULLANICI YÖNETİMİ — Apps Script üzerinden -->
+      <!-- KULLANICI YÖNETİMİ — Sheets CSV üzerinden -->
       <div class="fg" id="gs-users-wrap">
-        <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:9px;padding:10px 13px;font-size:0.76rem;color:#22c55e;margin-bottom:8px">
-          👤 <strong>Kullanıcılar Apps Script üzerinden yönetilir.</strong><br>
-          <span style="color:var(--muted)">Aşağıdaki Apps Script URL'si girildiğinde kullanıcılar otomatik senkronize olur.</span>
+        <label>👤 Kullanıcı Listesi Sheets URL</label>
+        <input type="url" id="gs-users-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem">
+        <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">
+          Sheets'te sütunlar: <strong>KullaniciID | Sifre | Ad | Rol</strong> — Paylaşım: Herkes görüntüleyebilir
         </div>
-        <div id="gs-users-status" style="display:none;font-size:0.72rem;margin-top:4px;padding:5px 9px;border-radius:6px"></div>
+        <div id="gs-users-status" style="display:none;font-size:0.72rem;margin-top:6px;padding:6px 10px;border-radius:6px"></div>
       </div>
 
       <div class="divider"></div>
@@ -914,8 +915,26 @@ let currentPDFDoc=null, currentPDFBlob=null;
   }
   // Apps Script URL — otomatik kayıtlı
   if(!localStorage.getItem('gs_orders_url'))localStorage.setItem('gs_orders_url','https://script.google.com/macros/s/AKfycbxAbxY8d3kvRVQt-A4oRFVcGodc694bCu_vo2fq5i9o0bfkUcRptEWRA3oa22rznWaMtQ/exec');
-  if(!localStorage.getItem('gs_stok_url'))localStorage.setItem('gs_stok_url','https://docs.google.com/spreadsheets/d/1tJTeDN386UUJhEZI4f21bK-w33-vwZR8h73gh9OQsj8/export?format=csv&gid=0');
-  if(!localStorage.getItem('gs_cari_url'))localStorage.setItem('gs_cari_url','https://docs.google.com/spreadsheets/d/1B2m6kWtLpvZOu5hbjJBywFj7uIoPREc7EvYUxKGoPTM/export?format=csv&gid=0');
+  if(!localStorage.getItem('gs_stok_url'))localStorage.setItem('gs_stok_url','https://docs.google.com/spreadsheets/d/1tJTeDN386UUJhEZI4f21bK-w33-vwZR8h73gh9OQsj8/gviz/tq?tqx=out:csv');
+  if(!localStorage.getItem('gs_cari_url'))localStorage.setItem('gs_cari_url','https://docs.google.com/spreadsheets/d/1B2m6kWtLpvZOu5hbjJBywFj7uIoPREc7EvYUxKGoPTM/gviz/tq?tqx=out:csv');
+  // Eski export?format=csv URL'lerini gviz/tq'ya otomatik geç
+  (function migrateUrls(){
+    const keys=['gs_stok_url','gs_cari_url','gs_users_url'];
+    keys.forEach(k=>{
+      const v=localStorage.getItem(k)||'';
+      if(v.includes('/export?format=csv')){
+        const m=v.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+        const gidM=v.match(/[?&]gid=(\d+)/);
+        if(m){
+          const id=m[1];
+          const gid=gidM&&gidM[1]!=='0'?gidM[1]:null;
+          const newUrl='https://docs.google.com/spreadsheets/d/'+id+'/gviz/tq?tqx=out:csv'+(gid?'&gid='+gid:'');
+          localStorage.setItem(k,newUrl);
+          console.log('[Migration] '+k+' gviz URL ye guncellendi');
+        }
+      }
+    });
+  })();
   const sd=localStorage.getItem('stokData');if(sd)stokData=JSON.parse(sd);
   const cd=localStorage.getItem('cariData');if(cd)cariData=JSON.parse(cd);
   const hd=localStorage.getItem('orderHistory');if(hd)orderHistory=JSON.parse(hd);
@@ -941,6 +960,26 @@ function resetAppData(){
   alert('✅ Sıfırlandı! Şimdi admin / admin123 ile giriş yapabilirsiniz.');
   location.reload();
 }
+// CSV/JSON satırlarından kullanıcı listesi parse et
+function parseUserRows(rows){
+  if(!rows||!rows.length)return[];
+  const normKey=k=>k.toString().trim().toLowerCase()
+    .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
+    .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
+    .replace(/[^a-z0-9]/g,'');
+  return rows.map(r=>{
+    const norm={};
+    Object.keys(r).forEach(k=>{norm[normKey(k)]=(r[k]||'').toString().trim();});
+    const vals=Object.values(r).map(v=>(v||'').toString().trim());
+    const id=norm['kullaniciid']||norm['id']||norm['userid']||norm['kullanici']||vals[0]||'';
+    const pw=norm['sifre']||norm['password']||norm['pw']||norm['parola']||vals[1]||'';
+    const name=norm['ad']||norm['adsoyad']||norm['name']||norm['isim']||vals[2]||id;
+    const role=norm['rol']||norm['role']||norm['yetki']||vals[3]||'user';
+    if(!id.trim()||!pw.trim())return null;
+    return{id:id.trim(),pw:hashPw(pw.trim()),name:(name||id).trim(),role:role.trim().toLowerCase()==='admin'?'admin':'user'};
+  }).filter(Boolean);
+}
+
 function getUsers(){
   try{
     const s=localStorage.getItem('sys_users');
@@ -980,21 +1019,21 @@ function doLogin(){
   const id=document.getElementById('l-id').value.trim();
   const pw=document.getElementById('l-pw').value;
   if(!id||!pw){errEl.textContent='Kullanıcı ID ve şifre gerekli.';errEl.style.display='block';return;}
-  
-  // Apps Script bağlıysa önce oradan güncel listeyi çek, sonra giriş dene
-  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
-  if(scriptUrl){
-    errEl.textContent='⏳ Kontrol ediliyor...';
+
+  // Kullanıcı Sheets URL'si varsa oradan güncel listeyi çek
+  const usersUrl=localStorage.getItem('gs_users_url')||'';
+  if(usersUrl){
+    errEl.textContent='⏳ Kullanıcılar yükleniyor...';
     errEl.style.cssText='display:block;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--accent)';
-    fetchUsersFromScript(scriptUrl).then(remoteUsers=>{
-      if(remoteUsers&&remoteUsers.length){
-        // Birleştir — local kullanıcıları silme
-        const local=getUsers();
-        const merged=[...remoteUsers];
-        local.forEach(lu=>{if(!merged.find(ru=>ru.id===lu.id))merged.push(lu);});
-        users=merged;
-        localStorage.setItem('sys_users',JSON.stringify(users));
-      }
+    fetchSheetCSV(usersUrl).then(csv=>{
+      try{
+        const rows=parseCSV(csv);
+        const loaded=parseUserRows(rows);
+        if(loaded&&loaded.length){
+          users=loaded;
+          localStorage.setItem('sys_users',JSON.stringify(users));
+        }
+      }catch(e){console.warn('Kullanıcı CSV hatası:',e);}
       _tryLogin(id,pw,errEl);
     }).catch(()=>_tryLogin(id,pw,errEl));
   } else {
@@ -1036,7 +1075,11 @@ function loginOK(u){
   applyFirma();renderHistory();updateStats();updateDataStatus();
   loadSheetsSettings();
   renderUserList();
-  autoSync(); // stok + cari arka planda
+  // Her login'de stok+cari mutlaka Sheets'ten taze çek
+  // Cache süresi sıfırlanıyor ki yeni kullanıcı güncel veriyi görsün
+  localStorage.removeItem('gs_stok_time');
+  localStorage.removeItem('gs_cari_time');
+  autoSync();
 }
 function saveScriptUrl(){
   const inp = document.getElementById('gs-orders-url-main');
@@ -1083,24 +1126,9 @@ function goPage(n,btn){
   btn.classList.add('active');
   if(n==='gecmis'){renderHistory();updateStats();}
   if(n==='ayarlar'){loadSheetsSettings();}
-  if(n==='stoklar'){
-    const su=localStorage.getItem('gs_stok_url')||'';
-    if(su)testAndSyncSheet('stok',false).then(()=>renderStokList());else renderStokList();
-  }
-  if(n==='cariler'){
-    const cu=localStorage.getItem('gs_cari_url')||'';
-    if(cu)testAndSyncSheet('cari',false).then(()=>renderCariList());else renderCariList();
-  }
-  if(n==='siparis'){
-    const cu=localStorage.getItem('gs_cari_url')||'';
-    const su=localStorage.getItem('gs_stok_url')||'';
-    if(cu||su){
-      const p=[];
-      if(su)p.push(testAndSyncSheet('stok',false));
-      if(cu)p.push(testAndSyncSheet('cari',false));
-      Promise.all(p).then(()=>initSiparisFilters());
-    } else initSiparisFilters();
-  }
+  if(n==='stoklar'){renderStokList();}
+  if(n==='cariler'){renderCariList();}
+  if(n==='siparis'){initSiparisFilters();}
 }
 
 // ═══════════════════════════════════════
@@ -1259,43 +1287,47 @@ function parseSheetUrl(url){
 
 // CSV endpoint URL listesi üret (birden fazla format, sırayla denenecek)
 function sheetCsvUrls(url){
-  if(url.includes('gviz/tq')||url.includes('/export?format=csv'))return[url];
+  // Doğrudan gviz URL verilmişse direkt kullan
+  if(url.includes('gviz/tq'))return[url];
+  // export?format=csv verilmişse gviz'e çevir
+  if(url.includes('/export?format=csv')){
+    const p=parseSheetUrl(url);
+    if(!p)return[];
+    const{id,gid}=p;
+    return[`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${gid!=='0'?'&gid='+gid:''}`];
+  }
   const p=parseSheetUrl(url);
   if(!p)return[];
   const{id,gid}=p;
-  const ts=Date.now();
+  // SADECE gviz/tq — export endpoint CORS engeliyle/HTTP 400 ile başarısız oluyor
   return[
-    // export endpoint — en güvenilir, tüm satırları getirir
-    `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}&t=${ts}`,
-    // gviz fallback
-    `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&gid=${gid}&t=${ts}`,
+    `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${gid!=='0'?'&gid='+gid:''}`,
   ];
 }
 
 async function fetchSheetCSV(url){
   const urls=sheetCsvUrls(url);
-  if(!urls.length)throw new Error('Geçersiz Google Sheets URL\'si. Tam Sheets bağlantısını yapıştırın.');
-  // Proxy listesi — telefon/farklı ağlarda CORS engelini aşmak için
-  const proxyFns=[
-    u=>u,  // 1. Doğrudan
-    u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),  // 2. AllOrigins
-    u=>'https://corsproxy.io/?'+encodeURIComponent(u),               // 3. CorsProxy
-  ];
+  if(!urls.length)throw new Error('Geçersiz Sheets URL. Sheets linkini olduğu gibi yapıştırın.');
   let lastErr='';
   for(const csvUrl of urls){
-    for(const pfn of proxyFns){
-      const tryUrl=pfn(csvUrl);
-      let resp;
-      try{resp=await fetch(tryUrl,{cache:'no-store'});}
-      catch(e){lastErr='Ağ hatası: '+e.message;continue;}
-      if(!resp.ok){lastErr='HTTP '+resp.status;continue;}
-      const text=await resp.text();
-      if(text.trim().startsWith('<')){lastErr='Erişim reddedildi';continue;}
-      if(!text.trim()){lastErr='Boş veri';continue;}
-      return text;  // Başarılı
+    let resp;
+    try{
+      resp=await fetch(csvUrl,{cache:'no-store',mode:'cors'});
+    }catch(e){
+      lastErr='Ağ hatası: '+e.message;
+      continue;
     }
+    if(!resp.ok){lastErr='HTTP '+resp.status;continue;}
+    const text=await resp.text();
+    if(text.trim().startsWith('<')){
+      // Giriş sayfasına yönlendi = paylaşım ayarı yanlış
+      lastErr='Erişim reddedildi — Sheets paylaşım ayarını kontrol edin';
+      continue;
+    }
+    if(!text.trim()){lastErr='Boş veri';continue;}
+    return text;
   }
-  throw new Error('Sheets verisi alınamadı ('+lastErr+'). Dosyayı "Herkese açık" yapın: Paylaş → Genel erişim → Görüntüleyici.');
+  throw new Error('Veri alınamadı: '+lastErr+'. Sheets → Paylaş → "Bağlantıya sahip herkes" → Görüntüleyici yapın.');
 }
 
 
@@ -1354,10 +1386,26 @@ function csvRowToCari(row){
 }
 
 function saveAndSyncSheets(){
-  const stokUrl=document.getElementById('gs-stok-url').value.trim();
-  const cariUrl=document.getElementById('gs-cari-url').value.trim();
+  let stokUrl=document.getElementById('gs-stok-url').value.trim();
+  let cariUrl=document.getElementById('gs-cari-url').value.trim();
+  // export?format=csv girildiyse otomatik gviz'e çevir
+  function toGviz(u){
+    if(!u||u.includes('gviz/tq'))return u;
+    const m=u.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+    const gidM=u.match(/[?#&]gid=(\d+)/);
+    if(!m)return u;
+    const gid=gidM&&gidM[1]!=='0'?gidM[1]:null;
+    return'https://docs.google.com/spreadsheets/d/'+m[1]+'/gviz/tq?tqx=out:csv'+(gid?'&gid='+gid:'');
+  }
+  stokUrl=toGviz(stokUrl);
+  cariUrl=toGviz(cariUrl);
+  // Input'ları da güncelle
+  if(stokUrl){const el=document.getElementById('gs-stok-url');if(el)el.value=stokUrl;}
+  if(cariUrl){const el=document.getElementById('gs-cari-url');if(el)el.value=cariUrl;}
   const ordersUrl=document.getElementById('gs-orders-url')?.value.trim()||'';
-  const usersUrl=document.getElementById('gs-users-url')?.value.trim()||'';
+  let usersUrl=document.getElementById('gs-users-url')?.value.trim()||'';
+  usersUrl=toGviz(usersUrl);
+  if(usersUrl){const el=document.getElementById('gs-users-url');if(el)el.value=usersUrl;}
   if(!stokUrl&&!cariUrl&&!ordersUrl&&!usersUrl){alert('En az bir URL girin!');return;}
   if(stokUrl)localStorage.setItem('gs_stok_url',stokUrl);
   if(cariUrl)localStorage.setItem('gs_cari_url',cariUrl);
@@ -1527,7 +1575,9 @@ function setGsStatus(type,txt,sub){
 function loadSheetsSettings(){
   const su=localStorage.getItem('gs_stok_url')||'';
   const cu=localStorage.getItem('gs_cari_url')||'';
-  const uu=''; // kullanıcılar artık Apps Script üzerinden
+  const uu=localStorage.getItem('gs_users_url')||'';
+  const el_u=document.getElementById('gs-users-url');
+  if(el_u&&uu)el_u.value=uu;
   const ou=localStorage.getItem('gs_orders_url')||'';
   const el1=document.getElementById('gs-stok-url');
   const el2=document.getElementById('gs-cari-url');
@@ -1597,10 +1647,16 @@ async function autoSync(){
   const stokUrl=localStorage.getItem('gs_stok_url')||'';
   const cariUrl=localStorage.getItem('gs_cari_url')||'';
   if(!stokUrl&&!cariUrl)return;
-  // Her zaman çek — farklı kullanıcılar güncel veri görsün
+  // 5 dakika geçmedikçe tekrar çekme — her login'de yeniden yüklemeyi önler
+  const CACHE_MS=5*60*1000;
+  const stokTime=Number(localStorage.getItem('gs_stok_time')||0);
+  const cariTime=Number(localStorage.getItem('gs_cari_time')||0);
+  const now=Date.now();
   const promises=[];
-  if(stokUrl)promises.push(testAndSyncSheet('stok',false));
-  if(cariUrl)promises.push(testAndSyncSheet('cari',false));
+  if(stokUrl&&(now-stokTime>CACHE_MS||!stokData.length))
+    promises.push(testAndSyncSheet('stok',false));
+  if(cariUrl&&(now-cariTime>CACHE_MS||!cariData.length))
+    promises.push(testAndSyncSheet('cari',false));
   if(promises.length)await Promise.all(promises);
 }
 
