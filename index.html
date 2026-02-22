@@ -10,7 +10,7 @@
 <!-- ZXing barcode library for camera scanning -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/zxing/0.21.3/zxing.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
+
 :root{
   --bg:#0d0d14;--surface:#151520;--surface2:#1c1c2b;--border:#2c2c42;
   --accent:#f5a623;--accent-dim:rgba(245,166,35,0.12);--accent-border:rgba(245,166,35,0.35);
@@ -19,7 +19,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
 
 /* ── LOGIN ANİMASYONLARI ── */
 #login-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;transition:opacity .5s ease,transform .5s ease}
@@ -42,7 +42,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);dis
 #page-transition.pt-show{display:flex;animation:overlayFadeIn .15s ease forwards}
 #page-transition.pt-hide{animation:overlayFadeOut .2s ease forwards}
 .pt-globe{font-size:3rem;animation:spinGlobe .8s cubic-bezier(.4,0,.6,1) infinite;display:block}
-.pt-label{font-family:'Syne',sans-serif;font-size:0.7rem;font-weight:700;color:var(--accent);letter-spacing:3px;text-transform:uppercase}
+.pt-label{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:0.7rem;font-weight:700;color:var(--accent);letter-spacing:3px;text-transform:uppercase}
 .pt-dots{display:flex;gap:5px;margin-top:2px}
 .pt-dots span{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:ptDots 1.2s ease-in-out infinite}
 .pt-dots span:nth-child(2){animation-delay:.2s}
@@ -50,31 +50,31 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);dis
 
 /* ── LOGIN ── */
 .login-logo-img{text-align:center;margin-bottom:4px}
-.login-brand-title{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;color:var(--accent);text-align:center;margin-bottom:6px;letter-spacing:3px;text-transform:uppercase;background:linear-gradient(90deg,#f5a623,#ff6b35,#f5a623);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.login-brand-title{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:1.1rem;font-weight:800;color:var(--accent);text-align:center;margin-bottom:6px;letter-spacing:3px;text-transform:uppercase;background:linear-gradient(90deg,#f5a623,#ff6b35,#f5a623);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .login-sub{color:var(--muted);font-size:0.82rem;margin-bottom:36px;text-align:center}
 .header-logo-wrap{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px}
-.header-logo-sub{font-family:'Syne',sans-serif;font-size:0.5rem;font-weight:700;color:var(--accent);letter-spacing:2.5px;text-transform:uppercase;opacity:.85;margin-top:-1px}
+.header-logo-sub{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:0.5rem;font-weight:700;color:var(--accent);letter-spacing:2.5px;text-transform:uppercase;opacity:.85;margin-top:-1px}
 .login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px 24px;width:100%;max-width:360px}
-.login-card h2{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:20px;text-align:center}
+.login-card h2{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:20px;text-align:center}
 .lf{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
 .lf label{font-size:0.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-.lf input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:1rem;outline:none;width:100%;transition:border-color .2s}
+.lf input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;font-size:1rem;outline:none;width:100%;transition:border-color .2s}
 .lf input:focus{border-color:var(--accent)}
 .login-err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:var(--radius-sm);padding:10px 14px;font-size:0.83rem;margin-bottom:12px;display:none}
-.btn-login{width:100%;background:var(--accent);color:#000;font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:700;border:none;border-radius:var(--radius-sm);padding:14px;cursor:pointer;margin-top:4px;letter-spacing:.3px}
+.btn-login{width:100%;background:var(--accent);color:#000;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;font-size:1rem;font-weight:700;border:none;border-radius:var(--radius-sm);padding:14px;cursor:pointer;margin-top:4px;letter-spacing:.3px}
 .btn-login:active{opacity:.8}
 .login-hint{margin-top:14px;font-size:0.72rem;color:var(--muted);text-align:center;line-height:1.6}
 
 /* ── HEADER ── */
 header{background:var(--surface);border-bottom:1px solid var(--border);padding:11px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.header-logo{font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:800;color:var(--accent)}
+.header-logo{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:1.05rem;font-weight:800;color:var(--accent)}
 .user-badge{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 11px;font-size:0.75rem;font-weight:500}
 .btn-logout{background:none;border:none;color:var(--muted);font-size:0.75rem;cursor:pointer;padding:5px 7px}
 .btn-logout:active{color:var(--danger)}
 
 /* ── BOTTOM NAV ── */
 nav.bottom-nav{background:var(--surface);border-top:1px solid var(--border);display:flex;flex-shrink:0}
-.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 2px;border:none;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.6rem;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;position:relative}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 2px;border:none;background:none;color:var(--muted);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;font-size:0.6rem;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:.3px;position:relative}
 .nav-item.active{color:var(--accent)}
 .nav-item .ico{font-size:1.25rem}
 .nav-item::after{content:'';position:absolute;top:0;left:15%;right:15%;height:2px;background:var(--accent);border-radius:0 0 4px 4px;opacity:0;transition:opacity .2s}
@@ -90,7 +90,7 @@ main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
 .card-title{font-size:0.68rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
 
 /* ── BUTTONS ── */
-.btn{padding:11px 15px;border:none;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:0.87rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:opacity .15s}
+.btn{padding:11px 15px;border:none;border-radius:var(--radius-sm);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;font-size:0.87rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:opacity .15s}
 .btn:active{opacity:.7}
 .btn-primary{background:var(--accent);color:#000}
 .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
@@ -103,7 +103,7 @@ main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
 /* ── FORM INPUTS ── */
 .fg{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
 .fg label{font-size:0.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-input,select{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 13px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.93rem;outline:none;width:100%;transition:border-color .2s}
+input,select{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 13px;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;font-size:0.93rem;outline:none;width:100%;transition:border-color .2s}
 input:focus,select:focus{border-color:var(--accent)}
 input::placeholder{color:var(--muted)}
 select option{background:var(--surface2)}
@@ -111,7 +111,7 @@ select option{background:var(--surface2)}
 
 /* ── SEARCH MODE TABS ── */
 .mode-tabs{display:flex;background:var(--surface2);border-radius:var(--radius-sm);padding:3px;gap:2px;margin-bottom:12px}
-.mode-tab{flex:1;padding:7px 4px;border:none;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.65rem;font-weight:600;cursor:pointer;border-radius:6px;text-transform:uppercase;letter-spacing:.3px;transition:all .2s;text-align:center;line-height:1.3}
+.mode-tab{flex:1;padding:7px 4px;border:none;background:none;color:var(--muted);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;font-size:0.65rem;font-weight:600;cursor:pointer;border-radius:6px;text-transform:uppercase;letter-spacing:.3px;transition:all .2s;text-align:center;line-height:1.3}
 .mode-tab.active{background:var(--accent);color:#000}
 .mode-tab .m-ico{font-size:1rem;display:block;margin-bottom:2px}
 
@@ -127,7 +127,7 @@ select option{background:var(--surface2)}
 .cam-modal{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:center}
 .cam-modal.open{display:flex}
 .cam-header{position:absolute;top:0;left:0;right:0;padding:16px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(to bottom,rgba(0,0,0,.8),transparent)}
-.cam-title{color:#fff;font-family:'Syne',sans-serif;font-weight:700;font-size:1rem}
+.cam-title{color:#fff;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-weight:700;font-size:1rem}
 .cam-close{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:1.4rem;cursor:pointer;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center}
 .cam-video-wrap{position:relative;width:100%;max-width:400px}
 #cam-video{width:100%;border-radius:12px;display:block}
@@ -148,7 +148,7 @@ select option{background:var(--surface2)}
 .ddi{padding:11px 13px;cursor:pointer;border-bottom:1px solid var(--border)}
 .ddi:last-child{border-bottom:none}
 .ddi:active{background:var(--surface2)}
-.dic{font-family:monospace;font-size:0.72rem;color:var(--accent)}
+.dic{font-family:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:0.72rem;color:var(--accent)}
 .din{font-size:0.87rem;font-weight:500;margin-top:2px}
 .dip{font-size:0.76rem;color:var(--muted);margin-top:1px}
 
@@ -160,7 +160,7 @@ select option{background:var(--surface2)}
 
 /* ── URUN PREVIEW ── */
 .urun-preview{background:var(--accent-dim);border:1px solid var(--accent-border);border-radius:var(--radius-sm);padding:12px 13px;margin-bottom:10px}
-.up-code{font-family:monospace;font-size:0.72rem;color:var(--accent);margin-bottom:3px}
+.up-code{font-family:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:0.72rem;color:var(--accent);margin-bottom:3px}
 .up-name{font-weight:600;font-size:0.93rem;margin-bottom:5px}
 .up-price{color:var(--accent);font-weight:700;font-size:1.05rem}
 
@@ -169,23 +169,23 @@ select option{background:var(--surface2)}
 .oi-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px}
 .oi-name{font-size:0.87rem;font-weight:600;flex:1;padding-right:6px;line-height:1.3}
 .oi-del{background:none;border:none;color:var(--danger);font-size:1rem;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0}
-.oi-code{font-family:monospace;font-size:0.68rem;color:var(--accent);margin-bottom:8px}
+.oi-code{font-family:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:0.68rem;color:var(--accent);margin-bottom:8px}
 .oi-lbl{font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
 .oi input{padding:7px 9px;font-size:0.83rem}
-.oi-total{text-align:right;font-family:'Syne',sans-serif;font-size:0.97rem;font-weight:700;color:var(--accent);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.oi-total{text-align:right;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:0.97rem;font-weight:700;color:var(--accent);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
 
 /* ── TOTALS ── */
 .tots{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px}
 .tr{display:flex;justify-content:space-between;padding:6px 0;font-size:0.87rem;border-bottom:1px solid var(--border)}
 .tr:last-child{border-bottom:none}
-.tr.grand{font-family:'Syne',sans-serif;font-size:1.05rem;font-weight:700;color:var(--accent);padding-top:10px}
+.tr.grand{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:1.05rem;font-weight:700;color:var(--accent);padding-top:10px}
 .tl{color:var(--muted)}
 
 /* ── PDF PREVIEW MODAL ── */
 .pdf-modal{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:900;display:none;flex-direction:column}
 .pdf-modal.open{display:flex}
 .pdf-modal-header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
-.pdf-modal-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--accent)}
+.pdf-modal-title{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-weight:700;font-size:1rem;color:var(--accent)}
 .pdf-modal-close{background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;padding:4px 8px}
 .pdf-modal-actions{background:var(--surface);border-top:1px solid var(--border);padding:12px 14px;display:flex;gap:10px;flex-shrink:0}
 .pdf-iframe-wrap{flex:1;overflow:hidden;background:#525659}
@@ -196,9 +196,9 @@ select option{background:var(--surface2)}
 /* ── PRICE RESULT ── */
 .price-result{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 14px;text-align:center;display:none;margin-bottom:12px}
 .price-result.show{display:block}
-.pr-code{font-family:monospace;font-size:0.76rem;color:var(--muted);margin-bottom:5px}
+.pr-code{font-family:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:0.76rem;color:var(--muted);margin-bottom:5px}
 .pr-name{font-size:1rem;font-weight:600;margin-bottom:16px;line-height:1.4}
-.pr-price{font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;color:var(--accent);margin-bottom:4px;line-height:1}
+.pr-price{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:2.5rem;font-weight:800;color:var(--accent);margin-bottom:4px;line-height:1}
 .pr-unit{font-size:0.79rem;color:var(--muted);margin-bottom:12px}
 .pr-kdv-badge{display:inline-block;background:var(--accent-dim);border:1px solid var(--accent-border);border-radius:20px;padding:4px 14px;font-size:0.78rem;color:var(--accent);font-weight:600}
 .isk-table{margin-top:16px;text-align:left}
@@ -212,14 +212,14 @@ select option{background:var(--surface2)}
 .hi{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px;margin-bottom:10px}
 .hi-top{display:flex;justify-content:space-between;align-items:flex-start}
 .hi-cari{font-weight:600;font-size:0.88rem}
-.hi-amt{font-family:'Syne',sans-serif;font-weight:700;color:var(--accent);font-size:0.97rem;white-space:nowrap;margin-left:8px}
+.hi-amt{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-weight:700;color:var(--accent);font-size:0.97rem;white-space:nowrap;margin-left:8px}
 .hi-meta{font-size:0.7rem;color:var(--muted);margin-top:3px;line-height:1.5}
 .hi-acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
 
 /* ── STATS ── */
 .sg{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px}
 .sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 8px;text-align:center}
-.sv{font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800;color:var(--accent)}
+.sv{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:1.25rem;font-weight:800;color:var(--accent)}
 .sl{font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:3px;line-height:1.2}
 
 /* ── USER MGMT ── */
@@ -242,7 +242,7 @@ select option{background:var(--surface2)}
 .mo{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:800;display:none;align-items:flex-end;justify-content:center}
 .mo.open{display:flex}
 .mo-body{background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;padding:22px 16px;width:100%;max-width:480px;max-height:82vh;overflow-y:auto}
-.mo-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.mo-title{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-weight:700;font-size:1rem;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
 .mo-close{background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer}
 
 /* ── MISC ── */
@@ -253,7 +253,7 @@ select option{background:var(--surface2)}
 .ai{background:rgba(245,166,35,.1);border:1px solid var(--accent-border);color:var(--accent)}
 .as{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e}
 .divider{height:1px;background:var(--border);margin:14px 0}
-.sec{font-family:'Syne',sans-serif;font-size:0.94rem;font-weight:700;margin-bottom:12px}
+.sec{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:0.94rem;font-weight:700;margin-bottom:12px}
 .tm{color:var(--muted)}
 .mt8{margin-top:8px}.mt12{margin-top:12px}
 .flex{display:flex}.g8{gap:8px}.aic{align-items:center}.jsb{justify-content:space-between}
@@ -282,7 +282,7 @@ select option{background:var(--surface2)}
   <div class="login-card">
     <h2>🔐 Giriş Yap</h2>
     <div id="l-err" style="display:none;margin-bottom:12px;text-align:center">
-      <button onclick="openWALogin()" style="display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;border:none;border-radius:9px;padding:11px 18px;font-family:'DM Sans',sans-serif;font-size:0.88rem;font-weight:700;cursor:pointer">
+      <button onclick="openWALogin()" style="display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;border:none;border-radius:9px;padding:11px 18px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;font-size:0.88rem;font-weight:700;cursor:pointer">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="#fff"><path d="M16 0C7.163 0 0 7.163 0 16c0 2.822.736 5.469 2.027 7.773L0 32l8.437-2.01A15.934 15.934 0 0 0 16 32c8.837 0 16-7.163 16-16S24.837 0 16 0zm0 29.333a13.27 13.27 0 0 1-6.75-1.833l-.484-.287-5.01 1.194 1.234-4.874-.317-.5A13.27 13.27 0 0 1 2.667 16C2.667 8.636 8.636 2.667 16 2.667S29.333 8.636 29.333 16 23.364 29.333 16 29.333zm7.27-9.862c-.398-.199-2.354-1.162-2.718-1.294-.364-.133-.629-.199-.894.199-.265.398-1.027 1.294-1.259 1.56-.232.265-.464.298-.862.1-.398-.199-1.681-.619-3.202-1.977-1.183-1.056-1.982-2.36-2.214-2.758-.232-.398-.025-.613.174-.811.179-.178.398-.464.597-.696.199-.232.265-.398.398-.663.133-.265.066-.497-.033-.696-.1-.199-.894-2.154-1.225-2.95-.322-.773-.649-.668-.894-.68-.232-.011-.497-.014-.762-.014s-.696.1-1.06.497c-.364.398-1.393 1.361-1.393 3.317s1.426 3.847 1.625 4.112c.199.265 2.806 4.284 6.797 6.009.95.41 1.692.655 2.27.839.954.304 1.823.261 2.51.158.766-.114 2.354-.962 2.686-1.891.332-.929.332-1.726.232-1.891-.099-.166-.364-.265-.762-.464z"/></svg> WhatsApp ile Şifre Al
       </button>
       <div style="margin-top:7px;font-size:0.72rem;color:var(--muted)">Şifreniz mi yok? Hemen mesaj gönderin.</div>
@@ -2700,7 +2700,7 @@ function renderHistory(){
       <div class="hi-top">
         <div style="flex:1;min-width:0">
           <div class="hi-cari">${o.cari}</div>
-          <div class="hi-meta">${o.tarih} · <span style="font-family:monospace;font-size:0.68rem">${o.id}</span><br>${o.odeme}${o.personel?' · '+o.personel:''}</div>
+          <div class="hi-meta">${o.tarih} · <span style="font-family:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:0.68rem">${o.id}</span><br>${o.odeme}${o.personel?' · '+o.personel:''}</div>
         </div>
         <div class="hi-amt">${fmt(o.toplam)}</div>
       </div>
@@ -3094,12 +3094,12 @@ function renderStokList(){
     <div class="card" style="padding:12px;margin-bottom:8px;cursor:pointer" onclick="openStokModal('${esc(u.kod)}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="flex:1;min-width:0">
-          <div style="font-family:monospace;font-size:0.7rem;color:var(--accent);margin-bottom:2px">${u.kod}${u.pratikKod?' · '+u.pratikKod:''}${u.kategori?` <span style="background:rgba(245,166,35,.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-size:0.65rem">${u.kategori}</span>`:''}</div>
+          <div style="font-family:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:0.7rem;color:var(--accent);margin-bottom:2px">${u.kod}${u.pratikKod?' · '+u.pratikKod:''}${u.kategori?` <span style="background:rgba(245,166,35,.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-size:0.65rem">${u.kategori}</span>`:''}</div>
           <div style="font-weight:600;font-size:0.88rem;margin-bottom:3px;line-height:1.3">${u.ad}</div>
           <div style="font-size:0.72rem;color:var(--muted)">${u.birim||''} · KDV %${u.kdv||20}${u.barkod?' · Barkod: '+u.barkod:''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;margin-left:10px">
-          <div style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:800;color:#ffffff">${u.fiyat?fmtTL(u.fiyat):'—'}</div>
+          <div style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:1rem;font-weight:800;color:#ffffff">${u.fiyat?fmtTL(u.fiyat):'—'}</div>
           <div style="font-size:0.68rem;color:var(--muted)">KDV dahil: ${fmtTL((u.fiyat||0)*(1+(u.kdv||20)/100))}</div>
         </div>
       </div>
@@ -3199,7 +3199,7 @@ function renderCariList(){
       <div class="card" style="padding:12px;margin-bottom:8px;cursor:pointer" onclick="openCariModal('${esc(c.kod)}')">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
           <div style="flex:1;min-width:0">
-            <div style="font-family:monospace;font-size:0.68rem;color:var(--accent);margin-bottom:4px">${c.kod}</div>
+            <div style="font-family:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:0.68rem;color:var(--accent);margin-bottom:4px">${c.kod}</div>
             <div style="font-weight:700;font-size:0.92rem;margin-bottom:8px;line-height:1.3">${c.ad}</div>
             <div style="display:flex;flex-direction:column;gap:3px">
               ${c.sehir||c.ilce?`<div style="display:flex;gap:6px;align-items:center"><span style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;width:52px;flex-shrink:0">📍 İl/İlçe</span><span style="font-size:0.75rem;color:var(--text)">${[c.sehir,c.ilce].filter(Boolean).join(' / ')}</span></div>`:''}
@@ -3214,7 +3214,7 @@ function renderCariList(){
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-size:0.62rem;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px">Bakiye</div>
-            <div style="font-family:'Syne',sans-serif;font-size:0.95rem;font-weight:700;color:${bakiyeColor}">₺${bakiye.toLocaleString('tr-TR',{minimumFractionDigits:2})}</div>
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:0.95rem;font-weight:700;color:${bakiyeColor}">₺${bakiye.toLocaleString('tr-TR',{minimumFractionDigits:2})}</div>
           </div>
         </div>
       </div>
