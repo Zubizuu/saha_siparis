@@ -890,8 +890,7 @@ let currentPDFDoc=null, currentPDFBlob=null;
 // ═══════════════════════════════════════
 (function(){
   // Varsayılan kullanıcılar (hiç kayıt yoksa)
-  const _h=pw=>{try{return btoa(unescape(encodeURIComponent(String(pw))));}catch(e){return btoa(String(pw));}};
-  const DEFAULT=[
+  const _h=pw=>String(pw||'').trim();  const DEFAULT=[
     {id:'admin',pw:_h('admin123'),name:'Yönetici',role:'admin'},
     {id:'satis1',pw:_h('1234'),name:'Satış 1',role:'user'},
   ];
@@ -906,7 +905,27 @@ let currentPDFDoc=null, currentPDFBlob=null;
         users=[...DEFAULT];
         localStorage.setItem('sys_users',JSON.stringify(users));
       } else {
-        users=parsed;
+        // Eski btoa encoded şifreleri plain text'e migrate et
+        const migrated=parsed.map(u=>{
+          if(!u.pw)return u;
+          // Eğer base64 encoded ise çöz
+          try{
+            const decoded=decodeURIComponent(escape(atob(u.pw)));
+            // Makul bir şifre mi? (boş değil, çok uzun değil, okunabilir)
+            if(decoded&&decoded.length>0&&decoded.length<100&&!/[\x00-\x1F]/.test(decoded)){
+              return{...u,pw:decoded};
+            }
+          }catch(e){}
+          try{
+            const decoded=atob(u.pw);
+            if(decoded&&decoded.length>0&&decoded.length<100&&!/[\x00-\x1F]/.test(decoded)){
+              return{...u,pw:decoded};
+            }
+          }catch(e){}
+          return u;
+        });
+        users=migrated;
+        localStorage.setItem('sys_users',JSON.stringify(users));
       }
     }catch(e){users=[...DEFAULT];localStorage.setItem('sys_users',JSON.stringify(users));}
   } else {
@@ -954,10 +973,8 @@ let currentPDFDoc=null, currentPDFBlob=null;
 // ═══════════════════════════════════════
 //  LOGIN
 // ═══════════════════════════════════════
-function hashPw(pw){
-  try{return btoa(unescape(encodeURIComponent(String(pw))));}
-  catch(e){return btoa(String(pw).replace(/[^\x00-\x7F]/g,c=>'_'));}
-}
+// Şifreler düz metin olarak saklanır — btoa encoding sorunlarını tamamen önler
+function hashPw(pw){ return String(pw||'').trim(); }
 
 // Giriş sorunu yaşandığında kullanıcı verilerini sıfırla
 function resetAppData(){
@@ -982,8 +999,8 @@ function parseUserRows(rows){
     const pw=norm['sifre']||norm['password']||norm['pw']||norm['parola']||vals[1]||'';
     const name=norm['ad']||norm['adsoyad']||norm['name']||norm['isim']||vals[2]||id;
     const role=norm['rol']||norm['role']||norm['yetki']||vals[3]||'user';
-    if(!id.trim()||!pw.trim())return null;
-    return{id:id.trim(),pw:hashPw(pw.trim()),name:(name||id).trim(),role:role.trim().toLowerCase()==='admin'?'admin':'user'};
+    if(!id.trim())return null;
+    return{id:id.trim(),pw:(pw||'').trim(),name:(name||id).trim(),role:role.trim().toLowerCase()==='admin'?'admin':'user'};
   }).filter(Boolean);
 }
 
@@ -1056,13 +1073,16 @@ function _tryLogin(id,pw,errEl){
   errEl.style.cssText='display:none';
   const allUsers=getUsers();
   const idLower=id.toLowerCase().trim();
-  const pwHash=hashPw(pw);
-  // ID karşılaştırması büyük/küçük harf duyarsız
+  const pwPlain=String(pw||'').trim();
   const u=allUsers.find(x=>{
     if((x.id||'').toLowerCase().trim()!==idLower)return false;
-    // Yeni hash yöntemi ile dene, eski btoa ile de dene (eski kayıtlar için)
-    try{return x.pw===pwHash||x.pw===btoa(pw);}
-    catch(e){return x.pw===pwHash;}
+    const stored=String(x.pw||'');
+    // Düz metin karşılaştır
+    if(stored===pwPlain)return true;
+    // Eski btoa encoded kayıtlar için geriye dönük destek
+    try{if(atob(stored)===pwPlain)return true;}catch(e){}
+    try{if(decodeURIComponent(escape(atob(stored)))===pwPlain)return true;}catch(e){}
+    return false;
   });
   if(!u){
     const byId=allUsers.find(x=>(x.id||'').toLowerCase().trim()===idLower);
@@ -1073,6 +1093,8 @@ function _tryLogin(id,pw,errEl){
     if(rw)rw.style.display='block';
     return;
   }
+  // Şifreyi düz metin olarak güncelle (eski format varsa temizle)
+  if(u.pw!==pwPlain){u.pw=pwPlain;localStorage.setItem('sys_users',JSON.stringify(getUsers()));}
   loginOK(u);
 }
 
@@ -1542,8 +1564,8 @@ async function testAndSyncSheet(type, showAlert=true){
         const name=getCol(r,['ad','adsoyad','name','isim','tamad'],2)||id;
         const roleRaw=getCol(r,['rol','role','yetki','tip'],3);
         const role=roleRaw.toLowerCase()==='admin'?'admin':'user';
-        if(!id||!pw)return null;
-        return{id,pw:hashPw(pw),name,role};
+        if(!id)return null;
+        return{id,pw:String(pw||'').trim(),name,role};
       }).filter(Boolean);
 
       if(!loaded.length){
@@ -2790,8 +2812,10 @@ async function pushUsersToScript(scriptUrl, showResult=false){
   const allU=getUsers();
   if(!allU.length)return;
   const payload=allU.map(u=>{
-    let plainPw='';
-    try{plainPw=atob(u.pw);}catch(e){plainPw='(degistir)';}
+    // Şifreler artık düz metin olarak saklanıyor
+    let plainPw=String(u.pw||'');
+    // Eski btoa encoded kayıt varsa çöz
+    if(!plainPw||plainPw.length===0){plainPw='(degistir)';}
     return{id:u.id,pw:plainPw,name:u.name,role:u.role};
   });
   try{
