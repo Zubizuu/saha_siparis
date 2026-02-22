@@ -985,6 +985,8 @@ function resetAppData(){
   location.reload();
 }
 // CSV/JSON satırlarından kullanıcı listesi parse et
+// NOT: Sheets'ten gelen şifreler güvenilmez olabilir — sadece ID/Ad/Rol alınır
+// Şifre yönetimi tamamen localStorage (panel) üzerinden yapılır
 function parseUserRows(rows){
   if(!rows||!rows.length)return[];
   const normKey=k=>k.toString().trim().toLowerCase()
@@ -996,11 +998,25 @@ function parseUserRows(rows){
     Object.keys(r).forEach(k=>{norm[normKey(k)]=(r[k]||'').toString().trim();});
     const vals=Object.values(r).map(v=>(v||'').toString().trim());
     const id=norm['kullaniciid']||norm['id']||norm['userid']||norm['kullanici']||vals[0]||'';
-    const pw=norm['sifre']||norm['password']||norm['pw']||norm['parola']||vals[1]||'';
+    const pwRaw=norm['sifre']||norm['password']||norm['pw']||norm['parola']||vals[1]||'';
     const name=norm['ad']||norm['adsoyad']||norm['name']||norm['isim']||vals[2]||id;
     const role=norm['rol']||norm['role']||norm['yetki']||vals[3]||'user';
     if(!id.trim())return null;
-    return{id:id.trim(),pw:(pw||'').trim(),name:(name||id).trim(),role:role.trim().toLowerCase()==='admin'?'admin':'user'};
+    // Sheets'ten gelen şifreyi temizle — base64 bozuksa düz metin dene
+    let pw=pwRaw.trim();
+    if(pw){
+      // Eğer base64 encoded ise çöz (eski Apps Script kayıtları)
+      try{
+        const dec=decodeURIComponent(escape(atob(pw)));
+        if(dec&&dec.length>0&&dec.length<100&&!/[\x00-\x08\x0E-\x1F]/.test(dec))pw=dec;
+      }catch(e){
+        try{const dec=atob(pw);if(dec&&dec.length<100&&!/[\x00-\x08\x0E-\x1F]/.test(dec))pw=dec;}catch(e2){}
+      }
+    }
+    // Local'deki mevcut şifreyi koru (Sheets şifresinden daha güvenilir)
+    const localUser=getUsers().find(u=>(u.id||'').toLowerCase()===id.toLowerCase());
+    const finalPw=localUser?.pw||pw||'';
+    return{id:id.trim(),pw:finalPw,name:(name||id).trim(),role:role.trim().toLowerCase()==='admin'?'admin':'user'};
   }).filter(Boolean);
 }
 
@@ -1025,12 +1041,21 @@ async function fetchUsersFromSheets(){
     if(!resp.ok)return null;
     const data=await resp.json();
     if(!data||!data.users||!data.users.length)return null;
-    return data.users.map(u=>({
-      id:String(u.id||'').trim(),
-      pw:hashPw(String(u.pw||u.sifre||'')),
-      name:String(u.name||u.ad||u.id||'').trim(),
-      role:(String(u.role||u.rol||'user')).toLowerCase()==='admin'?'admin':'user'
-    })).filter(u=>u.id&&u.pw);
+    return data.users.map(u=>{
+      const id=String(u.id||'').trim();
+      if(!id)return null;
+      const localUser=getUsers().find(x=>(x.id||'').toLowerCase()===id.toLowerCase());
+      let pw=localUser?.pw||'';
+      if(!pw){
+        const raw=String(u.pw||u.sifre||'').trim();
+        pw=raw;
+        if(raw){
+          try{const dec=decodeURIComponent(escape(atob(raw)));if(dec&&dec.length<100&&!/[\x00-\x08]/.test(dec))pw=dec;}
+          catch(e){try{const dec=atob(raw);if(dec&&dec.length<100&&!/[\x00-\x08]/.test(dec))pw=dec;}catch(e2){}}
+        }
+      }
+      return{id,pw,name:String(u.name||u.ad||id).trim(),role:String(u.role||u.rol||'user').toLowerCase()==='admin'?'admin':'user'};
+    }).filter(Boolean);
   }catch(e){
     console.warn('Apps Script kullanıcı hatası:',e.message);
     return null;
@@ -2795,12 +2820,23 @@ async function fetchUsersFromScript(scriptUrl){
     if(!resp.ok)return null;
     const data=await resp.json();
     if(!data||!data.users||!data.users.length)return null;
-    return data.users.map(u=>({
-      id:String(u.id||'').trim(),
-      pw:hashPw(String(u.pw||u.sifre||'')),
-      name:String(u.name||u.ad||u.id||'').trim(),
-      role:String(u.role||u.rol||'user').toLowerCase()==='admin'?'admin':'user'
-    })).filter(u=>u.id&&u.pw);
+    return data.users.map(u=>{
+      const id=String(u.id||'').trim();
+      if(!id)return null;
+      // Şifre: önce local'deki şifreyi koru (Sheets'ten gelen bozuk olabilir)
+      const localUser=getUsers().find(x=>(x.id||'').toLowerCase()===id.toLowerCase());
+      let pw=localUser?.pw||'';
+      if(!pw){
+        const raw=String(u.pw||u.sifre||'').trim();
+        pw=raw;
+        // base64 encoded ise çöz
+        if(raw){
+          try{const dec=decodeURIComponent(escape(atob(raw)));if(dec&&dec.length<100&&!/[\x00-\x08]/.test(dec))pw=dec;}
+          catch(e){try{const dec=atob(raw);if(dec&&dec.length<100&&!/[\x00-\x08]/.test(dec))pw=dec;}catch(e2){}}
+        }
+      }
+      return{id,pw,name:String(u.name||u.ad||id).trim(),role:String(u.role||u.rol||'user').toLowerCase()==='admin'?'admin':'user'};
+    }).filter(Boolean);
   }catch(e){
     console.warn('Script kullanıcı çekme hatası:',e.message);
     return null;
@@ -2808,16 +2844,17 @@ async function fetchUsersFromScript(scriptUrl){
 }
 
 // Kullanıcı listesini Apps Script'e gönder (otomatik veya manuel)
+// NOT: Şifreler Sheets'e GÖNDERİLMEZ — sadece ID/Ad/Rol senkronize edilir
+// Şifreler sadece localStorage (panel) üzerinden yönetilir
 async function pushUsersToScript(scriptUrl, showResult=false){
   const allU=getUsers();
   if(!allU.length)return;
-  const payload=allU.map(u=>{
-    // Şifreler artık düz metin olarak saklanıyor
-    let plainPw=String(u.pw||'');
-    // Eski btoa encoded kayıt varsa çöz
-    if(!plainPw||plainPw.length===0){plainPw='(degistir)';}
-    return{id:u.id,pw:plainPw,name:u.name,role:u.role};
-  });
+  const payload=allU.map(u=>({
+    id:u.id,
+    pw:'',           // Şifre Sheets'e yazılmaz — güvenlik + bozulma önlemi
+    name:u.name,
+    role:u.role
+  }));
   try{
     if(showResult)showUserSyncResult('loading','Gönderiliyor...');
     await fetch(scriptUrl,{
@@ -2826,7 +2863,7 @@ async function pushUsersToScript(scriptUrl, showResult=false){
       body:JSON.stringify({action:'saveUsers',users:payload}),
       mode:'no-cors',
     });
-    if(showResult)showUserSyncResult('ok',allU.length+' kullanıcı Sheets\'e gönderildi');
+    if(showResult)showUserSyncResult('ok',allU.length+' kullanıcı Sheets\'e gönderildi (şifreler local\'de korunur)');
   }catch(e){
     if(showResult)showUserSyncResult('error','Gönderilemedi: '+e.message);
   }
