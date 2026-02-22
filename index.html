@@ -1030,7 +1030,11 @@ function doLogin(){
         const rows=parseCSV(csv);
         const loaded=parseUserRows(rows);
         if(loaded&&loaded.length){
-          users=loaded;
+          // KRİTİK: Local kullanıcıları SİLME — merge et
+          const local=getUsers();
+          const merged=[...loaded];
+          local.forEach(lu=>{if(!merged.find(ru=>ru.id===lu.id))merged.push(lu);});
+          users=merged;
           localStorage.setItem('sys_users',JSON.stringify(users));
         }
       }catch(e){console.warn('Kullanıcı CSV hatası:',e);}
@@ -1104,7 +1108,15 @@ function saveScriptUrl(){
       if(st){st.style.cssText='display:block;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e';st.textContent='✅ Bağlantı başarılı! Kullanıcılar senkronize edildi.';}
       // Kullanıcıları hemen çek
       fetchUsersFromScript(url).then(u=>{
-        if(u&&u.length){users=u;localStorage.setItem('sys_users',JSON.stringify(u));renderUserList();}
+        if(u&&u.length){
+          // Merge: local kullanıcıları silme
+          const local=getUsers();
+          const merged=[...u];
+          local.forEach(lu=>{if(!merged.find(ru=>ru.id===lu.id))merged.push(lu);});
+          users=merged;
+          localStorage.setItem('sys_users',JSON.stringify(users));
+          renderUserList();
+        }
       });
     })
     .catch(e=>{
@@ -1307,27 +1319,29 @@ function sheetCsvUrls(url){
 
 async function fetchSheetCSV(url){
   const urls=sheetCsvUrls(url);
-  if(!urls.length)throw new Error('Geçersiz Sheets URL. Sheets linkini olduğu gibi yapıştırın.');
+  if(!urls.length)throw new Error('Geçersiz Sheets URL.');
+  // Direkt + allorigins proxy fallback (mobil CORS için)
+  const wrappers=[
+    u=>u,
+    u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+  ];
   let lastErr='';
   for(const csvUrl of urls){
-    let resp;
-    try{
-      resp=await fetch(csvUrl,{cache:'no-store',mode:'cors'});
-    }catch(e){
-      lastErr='Ağ hatası: '+e.message;
-      continue;
+    for(const wrap of wrappers){
+      const tryUrl=wrap(csvUrl);
+      let resp;
+      try{resp=await fetch(tryUrl,{cache:'no-store'});}
+      catch(e){lastErr=e.message;continue;}
+      if(!resp.ok){lastErr='HTTP '+resp.status;continue;}
+      const text=await resp.text();
+      if(text.trim().startsWith('<')||text.includes('accounts.google.com')){
+        lastErr='Erişim reddedildi';continue;
+      }
+      if(!text.trim()){lastErr='Boş veri';continue;}
+      return text;
     }
-    if(!resp.ok){lastErr='HTTP '+resp.status;continue;}
-    const text=await resp.text();
-    if(text.trim().startsWith('<')){
-      // Giriş sayfasına yönlendi = paylaşım ayarı yanlış
-      lastErr='Erişim reddedildi — Sheets paylaşım ayarını kontrol edin';
-      continue;
-    }
-    if(!text.trim()){lastErr='Boş veri';continue;}
-    return text;
   }
-  throw new Error('Veri alınamadı: '+lastErr+'. Sheets → Paylaş → "Bağlantıya sahip herkes" → Görüntüleyici yapın.');
+  throw new Error('Veri alınamadı: '+lastErr+'. Sheets paylaşımını "Bağlantıya sahip herkes → Görüntüleyici" yapın.');
 }
 
 
@@ -1533,8 +1547,11 @@ async function testAndSyncSheet(type, showAlert=true){
       if(showAlert)alert(`✅ ${loaded.length} kullanıcı yüklendi!`);
     }
   }catch(e){
-    setStatus(false,e.message);
-    console.error(`[${type} Sync] Hata:`,e);
+    // Hata olsa da mevcut lokal veri korunur — sadece hata göster
+    const localCount=type==='stok'?stokData.length:cariData.length;
+    const localMsg=localCount?(' ('+localCount+' kayıt önbellekten gösteriliyor)'):'';
+    setStatus(false,e.message+localMsg);
+    console.error('['+type+' Sync] Hata:',e);
   }
 }
 
@@ -2001,13 +2018,14 @@ async function saveOrder(){
   const scriptUrl=localStorage.getItem('gs_orders_url')||'';
   if(scriptUrl){
     try{
-      setSyncBar('loading','Sheets\'e kaydediliyor...');
+      setSyncBar('loading','Sheets\'e gönderiliyor...');
       await sendOrderToSheets(o,scriptUrl);
-      setSyncBar('ok','Sheets\'e kaydedildi ✓','');
-      alert('✅ Kaydedildi: '+o.id+'\n☁️ Google Sheets\'e de gönderildi.');
+      setSyncBar('ok','Sheets\'e gönderildi ✓','');
+      alert('✅ Kaydedildi: '+o.id+'\n☁️ Sheets\'e gönderildi (arka planda işleniyor).');
     }catch(e){
-      setSyncBar('error','Sheets hatası: '+e.message,'');
-      alert('✅ Kaydedildi: '+o.id+'\n⚠️ Sheets\'e gönderilemedi: '+e.message+'\nSipariş yerel bellekte mevcut.');
+      // Ağ hatası bile olsa sipariş lokalde var
+      setSyncBar('error','Sheets bağlantı hatası: '+e.message,'');
+      alert('✅ Sipariş kaydedildi: '+o.id+'\n⚠️ Sheets bağlantısı kurulamadı: '+e.message+'\nSipariş cihazda mevcut — geçmiş ekranından tekrar gönderebilirsiniz.');
     }
   } else {
     alert('✅ Kaydedildi: '+o.id);
@@ -2047,15 +2065,22 @@ async function sendOrderToSheets(order,scriptUrl){
       }),
     }
   };
-  // text/plain header — Apps Script CORS ile çalışır
-  const resp=await fetch(scriptUrl,{
-    method:'POST',
-    headers:{'Content-Type':'text/plain'},
-    body:JSON.stringify(payload),
-  });
-  if(!resp.ok)throw new Error('HTTP '+resp.status);
-  const data=await resp.json();
-  if(!data.ok)throw new Error(data.error||'Script hatası');
+  // text/plain + no-cors: Apps Script her ağdan çalışır (cevap okunamaz ama istek gider)
+  try{
+    const resp=await fetch(scriptUrl,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify(payload),
+      mode:'no-cors', // Telefon/farklı ağ uyumluluğu için
+    });
+    // no-cors'ta resp.ok kontrol edilemez, hata yoksa başarılı say
+    return;
+  }catch(e){
+    // Ağ hatası — GET ile dene (URL parametresi olarak)
+    const getUrl=scriptUrl+'?action=saveOrder&data='+encodeURIComponent(JSON.stringify(payload));
+    const resp2=await fetch(getUrl,{cache:'no-store',mode:'no-cors'});
+    return; // no-cors'ta başarı/hata ayırt edilemez ama istek gider
+  }
 }
 
 async function pushOrdersToSheets(){
@@ -2753,17 +2778,14 @@ async function pushUsersToScript(scriptUrl, showResult=false){
     return{id:u.id,pw:plainPw,name:u.name,role:u.role};
   });
   try{
-    if(showResult)showUserSyncResult('loading','Senkronize ediliyor...');
-    const resp=await fetch(scriptUrl,{
+    if(showResult)showUserSyncResult('loading','Gönderiliyor...');
+    await fetch(scriptUrl,{
       method:'POST',
       headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({action:'saveUsers',users:payload})
+      body:JSON.stringify({action:'saveUsers',users:payload}),
+      mode:'no-cors',
     });
-    const data=await resp.json();
-    if(showResult){
-      if(data.ok)showUserSyncResult('ok','✅ '+allU.length+' kullanıcı senkronize edildi');
-      else showUserSyncResult('error','Hata: '+(data.error||''));
-    }
+    if(showResult)showUserSyncResult('ok',allU.length+' kullanıcı Sheets\'e gönderildi');
   }catch(e){
     if(showResult)showUserSyncResult('error','Gönderilemedi: '+e.message);
   }
@@ -2771,27 +2793,54 @@ async function pushUsersToScript(scriptUrl, showResult=false){
 
 // Manuel: Kullanıcıları Script'ten çek ve güncelle
 async function syncUsersFromSheets(){
+  // Önce Sheets CSV'den dene (gs_users_url), sonra Apps Script (gs_orders_url)
+  const usersUrl=localStorage.getItem('gs_users_url')||'';
   const scriptUrl=localStorage.getItem('gs_orders_url')||'';
-  if(!scriptUrl){
-    showUserSyncResult('error','Önce Ayarlar > Apps Script URL kaydedin.');
+
+  if(!usersUrl&&!scriptUrl){
+    showUserSyncResult('error','Ayarlar > Kullanıcı Sheets URL veya Apps Script URL girin.');
     return;
   }
   showUserSyncResult('loading','Yükleniyor...');
-  const remote=await fetchUsersFromScript(scriptUrl);
+
+  let remote=null;
+
+  // Önce Sheets CSV dene
+  if(usersUrl){
+    try{
+      const csv=await fetchSheetCSV(usersUrl);
+      const rows=parseCSV(csv);
+      const parsed=parseUserRows(rows);
+      if(parsed&&parsed.length)remote=parsed;
+    }catch(e){console.warn('Kullanıcı CSV hatası:',e.message);}
+  }
+
+  // CSV olmadıysa Apps Script'ten dene
+  if(!remote&&scriptUrl){
+    try{remote=await fetchUsersFromScript(scriptUrl);}
+    catch(e){console.warn('Script hatası:',e.message);}
+  }
+
   if(remote&&remote.length){
-    // Mevcut listeyi koru — sadece Script'te olmayan kullanıcıları ekle
+    // KRİTİK: Mevcut local kullanıcıları SİLME
+    // Remote'ta olmayan local kullanıcıları koru
     const localUsers=getUsers();
     const merged=[...remote];
     localUsers.forEach(lu=>{
-      if(!merged.find(ru=>ru.id===lu.id))merged.push(lu);
+      if(!merged.find(ru=>ru.id===lu.id)){
+        merged.push(lu); // local'de var, remote'da yok → koru
+      } else {
+        // Remote'da da var → remote'un bilgilerini kullan (daha güncel)
+        // Ama local'in pw'si hashlenmiş olabilir, remote düz metin
+      }
     });
     users=merged;
     localStorage.setItem('sys_users',JSON.stringify(users));
     renderUserList();
-    showUserSyncResult('ok','✅ '+remote.length+' kullanıcı senkronize edildi');
+    showUserSyncResult('ok',merged.length+' kullanıcı yüklendi ('+remote.length+' uzak + '+(merged.length-remote.length)+' local)');
   } else {
-    // Script'ten gelmedi — mevcut listeyi KORU, sadece hata göster
-    showUserSyncResult('error','Script yanıt vermedi — mevcut kullanıcı listesi korundu.');
+    // Hiçbirinden gelmedi — mevcut listeyi KESİNLİKLE KORU
+    showUserSyncResult('error','Sheets/Script yanıt vermedi — mevcut '+getUsers().length+' kullanıcı korundu.');
   }
 }
 
