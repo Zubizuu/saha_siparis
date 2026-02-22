@@ -981,51 +981,15 @@ function getUsers(){
   return users.length?users:[];
 }
 
-// JSONP ile Apps Script çağrısı — CORS sorununu bypass eder
-function jsonpCall(url, timeout){
-  timeout = timeout || 10000;
-  return new Promise(function(resolve){
-    const cbName = '_cb_' + Date.now() + '_' + Math.floor(Math.random()*10000);
-    const script = document.createElement('script');
-    let done = false;
-    const timer = setTimeout(function(){
-      if(done) return; done = true;
-      delete window[cbName];
-      if(script.parentNode) script.parentNode.removeChild(script);
-      resolve(null);
-    }, timeout);
-    window[cbName] = function(data){
-      if(done) return; done = true;
-      clearTimeout(timer);
-      delete window[cbName];
-      if(script.parentNode) script.parentNode.removeChild(script);
-      resolve(data);
-    };
-    script.onerror = function(){
-      if(done) return; done = true;
-      clearTimeout(timer);
-      delete window[cbName];
-      if(script.parentNode) script.parentNode.removeChild(script);
-      resolve(null);
-    };
-    script.src = url + (url.indexOf('?')>=0?'&':'?') + 'callback=' + cbName + '&_t=' + Date.now();
-    document.head.appendChild(script);
-  });
-}
-
-// Apps Script üzerinden login — JSONP ile CORS bypass
+// Apps Script üzerinden login — en güvenilir yol
 async function loginViaScript(id, pw){
   try{
-    const base = (localStorage.getItem('gs_orders_url')||SCRIPT_URL);
-    const url = base + '?action=login&id=' + encodeURIComponent(id) + '&pw=' + encodeURIComponent(pw);
-    // Önce JSONP dene
-    const data = await jsonpCall(url, 10000);
-    if(data) return data;
-    // JSONP başarısız olursa fetch ile dene (same-origin veya CORS açıksa çalışır)
-    try{
-      const resp = await fetch(url, {cache:'no-store'});
-      return await resp.json();
-    }catch(e2){ return null; }
+    const url = (localStorage.getItem('gs_orders_url')||SCRIPT_URL)
+      + '?action=login&id=' + encodeURIComponent(id)
+      + '&pw=' + encodeURIComponent(pw);
+    const resp = await fetch(url, {cache:'no-store'});
+    const data = await resp.json();
+    return data; // {ok, user} veya {ok:false, error}
   }catch(e){
     console.warn('[Login] Script hatası:', e.message);
     return null;
@@ -1035,18 +999,10 @@ async function loginViaScript(id, pw){
 // Fallback: getUsers action ile kullanıcıları çek, local karşılaştır
 async function loginViaGetUsers(id, pw){
   try{
-    const base = (localStorage.getItem('gs_orders_url')||SCRIPT_URL);
-    const url = base + '?action=getUsers';
-    // Önce JSONP dene
-    let data = await jsonpCall(url, 10000);
-    // JSONP başarısız → fetch dene
-    if(!data){
-      try{
-        const resp = await fetch(url, {cache:'no-store'});
-        data = await resp.json();
-      }catch(e2){ data = null; }
-    }
-    if(!data || !data.ok || !data.users || !data.users.length) return null;
+    const url = (localStorage.getItem('gs_orders_url')||SCRIPT_URL) + '?action=getUsers';
+    const resp = await fetch(url, {cache:'no-store'});
+    const data = await resp.json();
+    if(!data.ok || !data.users || !data.users.length) return null;
     // Cache'e kaydet
     localStorage.setItem('sys_users', JSON.stringify(data.users));
     users = data.users;
@@ -1107,7 +1063,7 @@ async function doLogin(){
   const msgs = {
     'wrong_password': 'Şifre hatalı.',
     'not_found':      'Kullanıcı bulunamadı.',
-    'no_connection':  'Sunucuya bağlanılamadı ve kullanıcı local'de yok.',
+    'no_connection':  'Sunucuya bağlanılamadı ve kullanıcı local kayıtta yok.',
   };
   errEl.textContent = msgs[result.error] || ('Giriş başarısız: '+(result.error||result.hata||'Bilinmeyen hata'));
   errEl.style.cssText = 'display:block';
