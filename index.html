@@ -899,29 +899,19 @@ let currentPDFDoc=null, currentPDFBlob=null;
   ];
 
   const su=localStorage.getItem('sys_users');
-  let firstRun=false;
   if(su){
     try{
       const parsed=JSON.parse(su);
       if(!parsed||!parsed.length){
         users=[...DEFAULT];
         localStorage.setItem('sys_users',JSON.stringify(users));
-        firstRun=true;
       } else {
         users=parsed;
       }
-    }catch(e){users=[...DEFAULT];localStorage.setItem('sys_users',JSON.stringify(users));firstRun=true;}
+    }catch(e){users=[...DEFAULT];localStorage.setItem('sys_users',JSON.stringify(users));}
   } else {
     users=[...DEFAULT];
     localStorage.setItem('sys_users',JSON.stringify(users));
-    firstRun=true;
-  }
-  // İlk çalıştırmada kullanıcıları Apps Script'e push et
-  if(firstRun){
-    setTimeout(()=>{
-      const sUrl=localStorage.getItem('gs_orders_url')||SCRIPT_URL;
-      if(sUrl) pushUsersToScript(sUrl);
-    }, 2000);
   }
   // Apps Script URL — sabit kayıtlı
   if(!localStorage.getItem('gs_orders_url')){
@@ -1120,7 +1110,7 @@ async function doLogin(){
   const msgs = {
     'wrong_password': 'Şifre hatalı.',
     'not_found':      'Kullanıcı bulunamadı.',
-    'no_connection':  'Sunucuya bağlanılamadı ve kullanıcı local'de yok.',
+    'no_connection':  'Sunucuya bağlanılamadı ve kullanıcı local kayıtta yok.',
   };
   errEl.textContent = msgs[result.error] || ('Giriş başarısız: '+(result.error||result.hata||'Bilinmeyen hata'));
   errEl.style.cssText = 'display:block';
