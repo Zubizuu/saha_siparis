@@ -614,7 +614,7 @@ select option{background:var(--surface2)}
       <div class="fg" id="gs-stok-wrap">
         <label>📦 Stok Sayfası URL</label>
         <div style="display:flex;gap:6px">
-          <input type="url" id="gs-stok-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1">
+          <input type="url" id="gs-stok-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1" value="https://docs.google.com/spreadsheets/d/1tJTeDN386UUJhEZI4f21bK-w33-vwZR8h73gh9OQsj8/export?format=csv&gid=0">
           <button class="btn btn-secondary btn-xs" onclick="testAndSyncSheet('stok')" title="Test et ve çek" style="flex-shrink:0;white-space:nowrap">🔄 Çek</button>
         </div>
         <div id="gs-stok-status" style="display:none;font-size:0.72rem;margin-top:4px;padding:5px 9px;border-radius:6px"></div>
@@ -625,7 +625,7 @@ select option{background:var(--surface2)}
       <div class="fg" id="gs-cari-wrap">
         <label>👥 Cari Sayfası URL</label>
         <div style="display:flex;gap:6px">
-          <input type="url" id="gs-cari-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1">
+          <input type="url" id="gs-cari-url" placeholder="https://docs.google.com/spreadsheets/d/..." style="font-size:0.78rem;flex:1" value="https://docs.google.com/spreadsheets/d/1B2m6kWtLpvZOu5hbjJBywFj7uIoPREc7EvYUxKGoPTM/export?format=csv&gid=0">
           <button class="btn btn-secondary btn-xs" onclick="testAndSyncSheet('cari')" title="Test et ve çek" style="flex-shrink:0;white-space:nowrap">🔄 Çek</button>
         </div>
         <div id="gs-cari-status" style="display:none;font-size:0.72rem;margin-top:4px;padding:5px 9px;border-radius:6px"></div>
@@ -888,6 +888,8 @@ let currentPDFDoc=null, currentPDFBlob=null;
   }
   // Apps Script URL — otomatik kayıtlı
   if(!localStorage.getItem('gs_orders_url'))localStorage.setItem('gs_orders_url','https://script.google.com/macros/s/AKfycbxAbxY8d3kvRVQt-A4oRFVcGodc694bCu_vo2fq5i9o0bfkUcRptEWRA3oa22rznWaMtQ/exec');
+  if(!localStorage.getItem('gs_stok_url'))localStorage.setItem('gs_stok_url','https://docs.google.com/spreadsheets/d/1tJTeDN386UUJhEZI4f21bK-w33-vwZR8h73gh9OQsj8/export?format=csv&gid=0');
+  if(!localStorage.getItem('gs_cari_url'))localStorage.setItem('gs_cari_url','https://docs.google.com/spreadsheets/d/1B2m6kWtLpvZOu5hbjJBywFj7uIoPREc7EvYUxKGoPTM/export?format=csv&gid=0');
   const sd=localStorage.getItem('stokData');if(sd)stokData=JSON.parse(sd);
   const cd=localStorage.getItem('cariData');if(cd)cariData=JSON.parse(cd);
   const hd=localStorage.getItem('orderHistory');if(hd)orderHistory=JSON.parse(hd);
@@ -1051,9 +1053,24 @@ function goPage(n,btn){
   btn.classList.add('active');
   if(n==='gecmis'){renderHistory();updateStats();}
   if(n==='ayarlar'){loadSheetsSettings();}
-  if(n==='stoklar'){renderStokList();}
-  if(n==='cariler'){renderCariList();}
-  if(n==='siparis'){initSiparisFilters();}
+  if(n==='stoklar'){
+    const su=localStorage.getItem('gs_stok_url')||'';
+    if(su)testAndSyncSheet('stok',false).then(()=>renderStokList());else renderStokList();
+  }
+  if(n==='cariler'){
+    const cu=localStorage.getItem('gs_cari_url')||'';
+    if(cu)testAndSyncSheet('cari',false).then(()=>renderCariList());else renderCariList();
+  }
+  if(n==='siparis'){
+    const cu=localStorage.getItem('gs_cari_url')||'';
+    const su=localStorage.getItem('gs_stok_url')||'';
+    if(cu||su){
+      const p=[];
+      if(su)p.push(testAndSyncSheet('stok',false));
+      if(cu)p.push(testAndSyncSheet('cari',false));
+      Promise.all(p).then(()=>initSiparisFilters());
+    } else initSiparisFilters();
+  }
 }
 
 // ═══════════════════════════════════════
@@ -1479,6 +1496,13 @@ function loadSheetsSettings(){
   const elMain=document.getElementById('gs-orders-url-main');
   if(elMain&&ou)elMain.value=ou;
   // Kayıtlıysa durum göster
+  // Stok & cari URL durum göstergesi
+  const stokSt=document.getElementById('gs-stok-status');
+  const cariSt=document.getElementById('gs-cari-status');
+  const savedStok=localStorage.getItem('gs_stok_url')||'';
+  const savedCari=localStorage.getItem('gs_cari_url')||'';
+  if(stokSt&&savedStok&&stokData.length){stokSt.style.cssText='display:block;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e';stokSt.textContent='✅ '+stokData.length+' ürün — Sheets bağlı';}
+  if(cariSt&&savedCari&&cariData.length){cariSt.style.cssText='display:block;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e';cariSt.textContent='✅ '+cariData.length+' cari — Sheets bağlı';}
   if(ou){
     const stEl=document.getElementById('script-url-status');
     if(stEl){stEl.style.cssText='display:block;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#22c55e';stEl.textContent='✅ Bağlı — '+ou.substring(0,40)+'...';}
@@ -1525,17 +1549,12 @@ function loadSheetsSettings(){
 function showManualUpload(){document.getElementById('manual-upload-card').style.display='block';}
 function hideManualUpload(){document.getElementById('manual-upload-card').style.display='none';}
 
-// Sayfa açılışında otomatik sync — sadece stok & cari (10 dk'da bir)
+// Sayfa açılışında otomatik sync — her girişte taze veri çek
 async function autoSync(){
   const stokUrl=localStorage.getItem('gs_stok_url')||'';
   const cariUrl=localStorage.getItem('gs_cari_url')||'';
   if(!stokUrl&&!cariUrl)return;
-  const lastT=Math.max(
-    Number(localStorage.getItem('gs_stok_time')||0),
-    Number(localStorage.getItem('gs_cari_time')||0)
-  );
-  const TEN_MIN=10*60*1000;
-  if(Date.now()-lastT<TEN_MIN)return;
+  // Her zaman çek — farklı kullanıcılar güncel veri görsün
   const promises=[];
   if(stokUrl)promises.push(testAndSyncSheet('stok',false));
   if(cariUrl)promises.push(testAndSyncSheet('cari',false));
