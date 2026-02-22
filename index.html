@@ -581,7 +581,7 @@ select option{background:var(--surface2)}
       <div class="fg">
         <label>⚡ Apps Script URL</label>
         <div style="display:flex;gap:6px">
-          <input type="url" id="gs-orders-url-main" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:0.78rem;flex:1">
+          <input type="url" id="gs-orders-url-main" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:0.78rem;flex:1" value="https://script.google.com/macros/s/AKfycbxAbxY8d3kvRVQt-A4oRFVcGodc694bCu_vo2fq5i9o0bfkUcRptEWRA3oa22rznWaMtQ/exec">
           <button class="btn btn-primary btn-sm" style="flex-shrink:0;white-space:nowrap" onclick="saveScriptUrl()">💾 Kaydet</button>
         </div>
         <div id="script-url-status" style="display:none;font-size:0.72rem;margin-top:6px;padding:6px 10px;border-radius:8px"></div>
@@ -650,7 +650,7 @@ select option{background:var(--surface2)}
       </div>
       <div class="fg" id="gs-orders-wrap">
         <label>☁️ Apps Script URL (Sipariş Kayıt)</label>
-        <input type="url" id="gs-orders-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:0.78rem">
+        <input type="url" id="gs-orders-url" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:0.78rem" value="https://script.google.com/macros/s/AKfycbxAbxY8d3kvRVQt-A4oRFVcGodc694bCu_vo2fq5i9o0bfkUcRptEWRA3oa22rznWaMtQ/exec">
         <div style="font-size:0.68rem;color:var(--muted);margin-top:3px">Geçmiş sayfasındaki rehber butonuna bakın</div>
       </div>
 
@@ -882,6 +882,12 @@ let currentPDFDoc=null, currentPDFBlob=null;
     users=[...DEFAULT];
     localStorage.setItem('sys_users',JSON.stringify(users));
   }
+  // Apps Script URL — sabit kayıtlı
+  if(!localStorage.getItem('gs_orders_url')){
+    localStorage.setItem('gs_orders_url','https://script.google.com/macros/s/AKfycbxAbxY8d3kvRVQt-A4oRFVcGodc694bCu_vo2fq5i9o0bfkUcRptEWRA3oa22rznWaMtQ/exec');
+  }
+  // Apps Script URL — otomatik kayıtlı
+  if(!localStorage.getItem('gs_orders_url'))localStorage.setItem('gs_orders_url','https://script.google.com/macros/s/AKfycbxAbxY8d3kvRVQt-A4oRFVcGodc694bCu_vo2fq5i9o0bfkUcRptEWRA3oa22rznWaMtQ/exec');
   const sd=localStorage.getItem('stokData');if(sd)stokData=JSON.parse(sd);
   const cd=localStorage.getItem('cariData');if(cd)cariData=JSON.parse(cd);
   const hd=localStorage.getItem('orderHistory');if(hd)orderHistory=JSON.parse(hd);
