@@ -988,7 +988,11 @@ function doLogin(){
     errEl.style.cssText='display:block;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--accent)';
     fetchUsersFromScript(scriptUrl).then(remoteUsers=>{
       if(remoteUsers&&remoteUsers.length){
-        users=remoteUsers;
+        // Birleştir — local kullanıcıları silme
+        const local=getUsers();
+        const merged=[...remoteUsers];
+        local.forEach(lu=>{if(!merged.find(ru=>ru.id===lu.id))merged.push(lu);});
+        users=merged;
         localStorage.setItem('sys_users',JSON.stringify(users));
       }
       _tryLogin(id,pw,errEl);
@@ -1271,18 +1275,27 @@ function sheetCsvUrls(url){
 async function fetchSheetCSV(url){
   const urls=sheetCsvUrls(url);
   if(!urls.length)throw new Error('Geçersiz Google Sheets URL\'si. Tam Sheets bağlantısını yapıştırın.');
+  // Proxy listesi — telefon/farklı ağlarda CORS engelini aşmak için
+  const proxyFns=[
+    u=>u,  // 1. Doğrudan
+    u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),  // 2. AllOrigins
+    u=>'https://corsproxy.io/?'+encodeURIComponent(u),               // 3. CorsProxy
+  ];
   let lastErr='';
   for(const csvUrl of urls){
-    let resp;
-    try{resp=await fetch(csvUrl,{cache:'no-store'});}
-    catch(e){lastErr='Ağ hatası: '+e.message;continue;}
-    if(!resp.ok){lastErr=`HTTP ${resp.status} — Sheets\'i herkese açık yapın`;continue;}
-    const text=await resp.text();
-    if(text.trim().startsWith('<')){lastErr='Sheets erişim reddedildi — herkese açık değil';continue;}
-    if(!text.trim()){lastErr='Sheets boş veri döndürdü';continue;}
-    return text;
+    for(const pfn of proxyFns){
+      const tryUrl=pfn(csvUrl);
+      let resp;
+      try{resp=await fetch(tryUrl,{cache:'no-store'});}
+      catch(e){lastErr='Ağ hatası: '+e.message;continue;}
+      if(!resp.ok){lastErr='HTTP '+resp.status;continue;}
+      const text=await resp.text();
+      if(text.trim().startsWith('<')){lastErr='Erişim reddedildi';continue;}
+      if(!text.trim()){lastErr='Boş veri';continue;}
+      return text;  // Başarılı
+    }
   }
-  throw new Error(lastErr||'Sheets verisi alınamadı');
+  throw new Error('Sheets verisi alınamadı ('+lastErr+'). Dosyayı "Herkese açık" yapın: Paylaş → Genel erişim → Görüntüleyici.');
 }
 
 
@@ -1946,40 +1959,47 @@ async function saveOrder(){
 }
 
 async function sendOrderToSheets(order,scriptUrl){
-  // Her ürün satırı için ayrı kayıt gönder
-  const rows=order.items.map(it=>{
-    const net=it.fiyat*it.miktar*(1-it.iskonto/100);
-    const kdv=net*(it.kdv/100);
-    return{
-      sipNo:order.id,
+  const payload={
+    action:'saveOrder',
+    order:{
+      no:order.id,
       tarih:order.tarih,
-      cari:order.cari,
-      cariKod:order.cariKod,
-      odeme:order.odeme,
-      personel:order.personel,
-      not:order.not,
-      stokKod:it.stokKod||it.kod,
-      pratikKod:it.pratikKod||'',
-      urunAd:it.ad,
-      birim:it.birim,
-      miktar:it.miktar,
-      birimFiyat:it.fiyat,
-      iskonto:it.iskonto,
-      kdvOran:it.kdv,
-      netTutar:net.toFixed(2),
-      kdvTutar:kdv.toFixed(2),
-      genelToplam:(net+kdv).toFixed(2),
-      siparisToplam:order.toplam.toFixed(2),
-      durum:order.durum||'Yeni',
-    };
-  });
+      saat:'',
+      personel:order.personel||currentUser?.name||'',
+      cariKod:order.cariKod||'',
+      cariAd:order.cari||'',
+      odeme:order.odeme||'',
+      not:order.not||'',
+      items:(order.items||[]).map(it=>{
+        const i2=it.iskonto2||0;
+        const net=it.fiyat*(1-it.iskonto/100)*(1-i2/100);
+        const kdv=net*(it.kdv/100);
+        return{
+          kod:it.stokKod||it.kod,
+          ad:it.ad,
+          birim:it.birim,
+          miktar:it.miktar,
+          fiyat:it.fiyat,
+          isk1:it.iskonto||0,
+          isk2:i2,
+          netFiyat:net.toFixed(2),
+          kdv:it.kdv||0,
+          toplamKdvsiz:net.toFixed(2),
+          toplamKdvli:(net+kdv).toFixed(2),
+          bedelsiz:it.bedelsiz||false,
+        };
+      }),
+    }
+  };
+  // text/plain header — Apps Script CORS ile çalışır
   const resp=await fetch(scriptUrl,{
     method:'POST',
-    mode:'no-cors',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:'addOrder',rows}),
+    headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify(payload),
   });
-  // no-cors returns opaque response — assume success
+  if(!resp.ok)throw new Error('HTTP '+resp.status);
+  const data=await resp.json();
+  if(!data.ok)throw new Error(data.error||'Script hatası');
 }
 
 async function pushOrdersToSheets(){
@@ -2703,12 +2723,19 @@ async function syncUsersFromSheets(){
   showUserSyncResult('loading','Yükleniyor...');
   const remote=await fetchUsersFromScript(scriptUrl);
   if(remote&&remote.length){
-    users=remote;
+    // Mevcut listeyi koru — sadece Script'te olmayan kullanıcıları ekle
+    const localUsers=getUsers();
+    const merged=[...remote];
+    localUsers.forEach(lu=>{
+      if(!merged.find(ru=>ru.id===lu.id))merged.push(lu);
+    });
+    users=merged;
     localStorage.setItem('sys_users',JSON.stringify(users));
     renderUserList();
-    showUserSyncResult('ok','✅ '+remote.length+' kullanıcı yüklendi');
+    showUserSyncResult('ok','✅ '+remote.length+' kullanıcı senkronize edildi');
   } else {
-    showUserSyncResult('error','Kullanıcı alınamadı. Apps Script URL doğru ve dağıtılmış olmalı.');
+    // Script'ten gelmedi — mevcut listeyi KORU, sadece hata göster
+    showUserSyncResult('error','Script yanıt vermedi — mevcut kullanıcı listesi korundu.');
   }
 }
 
