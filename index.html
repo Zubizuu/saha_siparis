@@ -890,25 +890,38 @@ let currentPDFDoc=null, currentPDFBlob=null;
 // ═══════════════════════════════════════
 (function(){
   // Varsayılan kullanıcılar (hiç kayıt yoksa)
-  const _h=pw=>String(pw||'').trim();  const DEFAULT=[
-    {id:'admin',pw:_h('admin123'),name:'Yönetici',role:'admin'},
-    {id:'satis1',pw:_h('1234'),name:'Satış 1',role:'user'},
+  const DEFAULT=[
+    {id:'umut',    pw:'1111',   name:'Umut',    role:'user'},
+    {id:'satis1',  pw:'1111',   name:'Satış 1', role:'user'},
+    {id:'burak',   pw:'0106',   name:'Burak',   role:'admin'},
+    {id:'batuhan', pw:'baba44', name:'Batuhan', role:'admin'},
+    {id:'admin',   pw:'3535',   name:'Yönetici',role:'admin'},
   ];
 
   const su=localStorage.getItem('sys_users');
+  let firstRun=false;
   if(su){
     try{
       const parsed=JSON.parse(su);
       if(!parsed||!parsed.length){
         users=[...DEFAULT];
         localStorage.setItem('sys_users',JSON.stringify(users));
+        firstRun=true;
       } else {
         users=parsed;
       }
-    }catch(e){users=[...DEFAULT];localStorage.setItem('sys_users',JSON.stringify(users));}
+    }catch(e){users=[...DEFAULT];localStorage.setItem('sys_users',JSON.stringify(users));firstRun=true;}
   } else {
     users=[...DEFAULT];
     localStorage.setItem('sys_users',JSON.stringify(users));
+    firstRun=true;
+  }
+  // İlk çalıştırmada kullanıcıları Apps Script'e push et
+  if(firstRun){
+    setTimeout(()=>{
+      const sUrl=localStorage.getItem('gs_orders_url')||SCRIPT_URL;
+      if(sUrl) pushUsersToScript(sUrl);
+    }, 2000);
   }
   // Apps Script URL — sabit kayıtlı
   if(!localStorage.getItem('gs_orders_url')){
@@ -981,15 +994,51 @@ function getUsers(){
   return users.length?users:[];
 }
 
-// Apps Script üzerinden login — en güvenilir yol
+// JSONP ile Apps Script çağrısı — CORS sorununu bypass eder
+function jsonpCall(url, timeout){
+  timeout = timeout || 10000;
+  return new Promise(function(resolve){
+    const cbName = '_cb_' + Date.now() + '_' + Math.floor(Math.random()*10000);
+    const script = document.createElement('script');
+    let done = false;
+    const timer = setTimeout(function(){
+      if(done) return; done = true;
+      delete window[cbName];
+      if(script.parentNode) script.parentNode.removeChild(script);
+      resolve(null);
+    }, timeout);
+    window[cbName] = function(data){
+      if(done) return; done = true;
+      clearTimeout(timer);
+      delete window[cbName];
+      if(script.parentNode) script.parentNode.removeChild(script);
+      resolve(data);
+    };
+    script.onerror = function(){
+      if(done) return; done = true;
+      clearTimeout(timer);
+      delete window[cbName];
+      if(script.parentNode) script.parentNode.removeChild(script);
+      resolve(null);
+    };
+    script.src = url + (url.indexOf('?')>=0?'&':'?') + 'callback=' + cbName + '&_t=' + Date.now();
+    document.head.appendChild(script);
+  });
+}
+
+// Apps Script üzerinden login — JSONP ile CORS bypass
 async function loginViaScript(id, pw){
   try{
-    const url = (localStorage.getItem('gs_orders_url')||SCRIPT_URL)
-      + '?action=login&id=' + encodeURIComponent(id)
-      + '&pw=' + encodeURIComponent(pw);
-    const resp = await fetch(url, {cache:'no-store'});
-    const data = await resp.json();
-    return data; // {ok, user} veya {ok:false, error}
+    const base = (localStorage.getItem('gs_orders_url')||SCRIPT_URL);
+    const url = base + '?action=login&id=' + encodeURIComponent(id) + '&pw=' + encodeURIComponent(pw);
+    // Önce JSONP dene
+    const data = await jsonpCall(url, 10000);
+    if(data) return data;
+    // JSONP başarısız olursa fetch ile dene (same-origin veya CORS açıksa çalışır)
+    try{
+      const resp = await fetch(url, {cache:'no-store'});
+      return await resp.json();
+    }catch(e2){ return null; }
   }catch(e){
     console.warn('[Login] Script hatası:', e.message);
     return null;
@@ -999,10 +1048,18 @@ async function loginViaScript(id, pw){
 // Fallback: getUsers action ile kullanıcıları çek, local karşılaştır
 async function loginViaGetUsers(id, pw){
   try{
-    const url = (localStorage.getItem('gs_orders_url')||SCRIPT_URL) + '?action=getUsers';
-    const resp = await fetch(url, {cache:'no-store'});
-    const data = await resp.json();
-    if(!data.ok || !data.users || !data.users.length) return null;
+    const base = (localStorage.getItem('gs_orders_url')||SCRIPT_URL);
+    const url = base + '?action=getUsers';
+    // Önce JSONP dene
+    let data = await jsonpCall(url, 10000);
+    // JSONP başarısız → fetch dene
+    if(!data){
+      try{
+        const resp = await fetch(url, {cache:'no-store'});
+        data = await resp.json();
+      }catch(e2){ data = null; }
+    }
+    if(!data || !data.ok || !data.users || !data.users.length) return null;
     // Cache'e kaydet
     localStorage.setItem('sys_users', JSON.stringify(data.users));
     users = data.users;
@@ -1063,7 +1120,7 @@ async function doLogin(){
   const msgs = {
     'wrong_password': 'Şifre hatalı.',
     'not_found':      'Kullanıcı bulunamadı.',
-    'no_connection':  'Sunucuya bağlanılamadı ve kullanıcı local kayıtta yok.',
+    'no_connection':  'Sunucuya bağlanılamadı ve kullanıcı local'de yok.',
   };
   errEl.textContent = msgs[result.error] || ('Giriş başarısız: '+(result.error||result.hata||'Bilinmeyen hata'));
   errEl.style.cssText = 'display:block';
@@ -2773,17 +2830,17 @@ function saveUser(){
   localStorage.setItem('sys_users',JSON.stringify(users));
   renderUserList();
   closeAddUser();
-  // Apps Script bağlıysa otomatik senkronize et
-  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
-  if(scriptUrl) pushUsersToScript(scriptUrl);
+  // Apps Script'e otomatik senkronize et
+  const scriptUrl=localStorage.getItem('gs_orders_url')||SCRIPT_URL;
+  pushUsersToScript(scriptUrl, true);
 }
 function delUser(id){
   if(!confirm(id+' silinsin mi?'))return;
   users=getUsers().filter(u=>u.id!==id);
   localStorage.setItem('sys_users',JSON.stringify(users));
   renderUserList();
-  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
-  if(scriptUrl) pushUsersToScript(scriptUrl);
+  const scriptUrl=localStorage.getItem('gs_orders_url')||SCRIPT_URL;
+  pushUsersToScript(scriptUrl, true);
 }
 
 // ═══════════════════════════════════════
