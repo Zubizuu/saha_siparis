@@ -940,8 +940,15 @@ let currentPDFDoc=null, currentPDFBlob=null;
   const cd=localStorage.getItem('cariData');if(cd)cariData=JSON.parse(cd);
   const hd=localStorage.getItem('orderHistory');if(hd)orderHistory=JSON.parse(hd);
   const fd=localStorage.getItem('firmaData');if(fd)firma=JSON.parse(fd);
-  const sess=localStorage.getItem('session');
-  if(sess){const u=users.find(x=>(x.id||'').toLowerCase()===sess.toLowerCase());if(u){loginOK(u);return;}}
+  // Session: {id, name, role} objesi olarak saklanır
+  try{
+    const sess=localStorage.getItem('session');
+    if(sess){
+      let su;
+      try{su=JSON.parse(sess);}catch(e){su={id:sess,name:sess,role:'user'};}
+      if(su&&su.id){loginOK(su);return;}
+    }
+  }catch(e){}
   document.addEventListener('click',e=>{
     if(!e.target.closest('.sw')&&!e.target.closest('.cam-btn'))
       document.querySelectorAll('.dd').forEach(d=>d.classList.remove('open'));
@@ -949,130 +956,158 @@ let currentPDFDoc=null, currentPDFBlob=null;
 })();
 
 // ═══════════════════════════════════════
-//  LOGIN
+//  LOGIN — Google Sheets Tabanlı Kimlik Doğrulama
+//  Şifreler SADECE Sheets'te, düz metin olarak tutulur.
+//  localStorage'da şifre ASLA saklanmaz.
+//  Her cihazda, her tarayıcıda aynı şekilde çalışır.
 // ═══════════════════════════════════════
-// Şifreler düz metin olarak saklanır — btoa encoding sorunlarını tamamen önler
+
 function hashPw(pw){ return String(pw||'').trim(); }
 
-// Giriş sorunu yaşandığında kullanıcı verilerini sıfırla
 function resetAppData(){
-  if(!confirm('Kullanıcı verileri sıfırlanacak.\nAdmin şifresi: admin123\nDevam?'))return;
+  if(!confirm('Oturum ve kullanıcı cache sıfırlanacak. Devam?'))return;
   localStorage.removeItem('sys_users');
   localStorage.removeItem('session');
-  alert('✅ Sıfırlandı! Şimdi admin / admin123 ile giriş yapabilirsiniz.');
+  localStorage.removeItem('users_cache');
+  localStorage.removeItem('users_cache_time');
+  alert('Sıfırlandı! Sayfayı yenileyip tekrar giriş yapın.');
   location.reload();
 }
-// CSV/JSON satırlarından kullanıcı listesi parse et
-function parseUserRows(rows){
-  if(!rows||!rows.length)return[];
-  const normKey=k=>k.toString().trim().toLowerCase()
-    .replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s')
-    .replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c')
-    .replace(/[^a-z0-9]/g,'');
-  return rows.map(r=>{
-    const norm={};
-    Object.keys(r).forEach(k=>{norm[normKey(k)]=(r[k]||'').toString().trim();});
-    const vals=Object.values(r).map(v=>(v||'').toString().trim());
-    const id=norm['kullaniciid']||norm['id']||norm['userid']||norm['kullanici']||vals[0]||'';
-    const sheetPw=norm['sifre']||norm['password']||norm['pw']||norm['parola']||vals[1]||'';
-    const name=norm['ad']||norm['adsoyad']||norm['name']||norm['isim']||vals[2]||id;
-    const role=norm['rol']||norm['role']||norm['yetki']||vals[3]||'user';
-    if(!id.trim())return null;
-    // Local şifre öncelikli; yoksa Sheets'ten gelen düz metin kullan
-    const localUser=getUsers().find(u=>(u.id||'').toLowerCase()===id.trim().toLowerCase());
-    const pw=localUser?.pw||sheetPw||'';
-    return{id:id.trim(),pw,name:(name||id).trim(),role:role.trim().toLowerCase()==='admin'?'admin':'user'};
-  }).filter(Boolean);
+
+// Sheets CSV'den kullanıcıları parse et — düz metin şifre
+async function fetchUsersCSV(url){
+  try{
+    const resp = await fetch(url+'&t='+Date.now(), {cache:'no-store'});
+    const text = await resp.text();
+    if(!text||text.trim().startsWith('<'))return null;
+    const lines = text.split('\n').filter(l=>l.trim());
+    if(lines.length<2)return null;
+    const parseRow = line => {
+      const result=[]; let cur='', inQ=false;
+      for(let i=0;i<line.length;i++){
+        const ch=line[i];
+        if(ch==='"'){inQ=!inQ;}
+        else if(ch===','&&!inQ){result.push(cur.trim().replace(/^"|"$/g,''));cur='';}
+        else cur+=ch;
+      }
+      result.push(cur.trim().replace(/^"|"$/g,''));
+      return result;
+    };
+    const normH = h=>h.toLowerCase()
+      .replace(/\u011f/g,'g').replace(/\u00fc/g,'u').replace(/\u015f/g,'s')
+      .replace(/\u0131/g,'i').replace(/\u00f6/g,'o').replace(/\u00e7/g,'c')
+      .replace(/[^a-z0-9]/g,'');
+    const headers = parseRow(lines[0]).map(normH);
+    const iId   = headers.findIndex(h=>['kullaniciid','id','userid','kullanici'].includes(h));
+    const iPw   = headers.findIndex(h=>['sifre','password','pw','parola'].includes(h));
+    const iName = headers.findIndex(h=>['ad','name','adsoyad','isim'].includes(h));
+    const iRole = headers.findIndex(h=>['rol','role','yetki'].includes(h));
+    if(iId<0||iPw<0){ console.warn('[Users] Eksik sütun. Başlıklar:',headers); return null; }
+    const usrs=[];
+    for(let i=1;i<lines.length;i++){
+      const cols=parseRow(lines[i]);
+      const id  =(cols[iId]||'').trim();
+      const pw  =(cols[iPw]||'').trim();
+      const name=iName>=0?(cols[iName]||'').trim():id;
+      const role=iRole>=0?(cols[iRole]||'').toLowerCase():'user';
+      if(id) usrs.push({id, pw, name:name||id, role:role==='admin'?'admin':'user'});
+    }
+    console.log('[Users] Sheets\'ten',usrs.length,'kullanıcı okundu');
+    return usrs.length?usrs:null;
+  }catch(e){
+    console.warn('[Users] Fetch hatası:',e.message);
+    return null;
+  }
 }
 
 function getUsers(){
   try{
     const s=localStorage.getItem('sys_users');
-    if(s){
-      const parsed=JSON.parse(s);
-      if(parsed&&parsed.length)return parsed;
-    }
-    // localStorage boş veya parse hatalı, in-memory users kullan
-    return users.length?users:[];
-  }catch(e){return users.length?users:[];}
+    if(s){const p=JSON.parse(s);if(p&&p.length)return p;}
+  }catch(e){}
+  return users.length?users:[];
 }
 
-// Apps Script üzerinden kullanıcıları çek
-async function fetchUsersFromSheets(){
-  const scriptUrl=localStorage.getItem('gs_orders_url')||'';
-  if(!scriptUrl)return null;
-  try{
-    const resp=await fetch(scriptUrl+'?action=getUsers',{cache:'no-store'});
-    if(!resp.ok)return null;
-    const data=await resp.json();
-    if(!data||!data.users||!data.users.length)return null;
-    return data.users.map(u=>{
-      const id=String(u.id||'').trim();
-      if(!id)return null;
-      const localUser=getUsers().find(x=>(x.id||'').toLowerCase()===id.toLowerCase());
-      const pw=localUser?.pw||String(u.pw||u.sifre||'').trim();
-      return{id,pw,name:String(u.name||u.ad||id).trim(),role:String(u.role||u.rol||'user').toLowerCase()==='admin'?'admin':'user'};
-    }).filter(Boolean);
-  }catch(e){
-    console.warn('Apps Script kullanıcı hatası:',e.message);
-    return null;
+// Güncel kullanıcıları getir: önce Sheets, yoksa local cache
+async function getSheetUsers(){
+  const usersUrl = localStorage.getItem('gs_users_url') ||
+    'https://docs.google.com/spreadsheets/d/1B2m6kWtLpvZOu5hbjJBywFj7uIoPREc7EvYUxKGoPTM/gviz/tq?tqx=out:csv&sheet=Kullanicilar';
+  const fresh = await fetchUsersCSV(usersUrl);
+  if(fresh&&fresh.length){
+    // Cache güncelle (admin paneli için)
+    localStorage.setItem('sys_users', JSON.stringify(fresh));
+    users = fresh;
+    return fresh;
   }
+  // Sheets erişilemezse local fallback
+  const local = getUsers();
+  console.warn('[Users] Sheets\'e erişilemedi, local cache kullanılıyor:',local.length,'kullanıcı');
+  return local;
 }
 
-function doLogin(){
+async function doLogin(){
   const errEl=document.getElementById('l-err');
+  const id = document.getElementById('l-id').value.trim();
+  const pw = document.getElementById('l-pw').value;
   errEl.style.display='none';
-  const id=document.getElementById('l-id').value.trim();
-  const pw=document.getElementById('l-pw').value;
   if(!id||!pw){errEl.textContent='Kullanıcı ID ve şifre gerekli.';errEl.style.display='block';return;}
 
-  // Kullanıcı Sheets URL'si varsa oradan güncel listeyi çek
-  const usersUrl=localStorage.getItem('gs_users_url')||'';
-  if(usersUrl){
-    errEl.textContent='⏳ Kullanıcılar yükleniyor...';
-    errEl.style.cssText='display:block;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--accent)';
-    fetchSheetCSV(usersUrl).then(csv=>{
-      try{
-        const rows=parseCSV(csv);
-        const loaded=parseUserRows(rows);
-        if(loaded&&loaded.length){
-          // KRİTİK: Local kullanıcıları SİLME — merge et
-          const local=getUsers();
-          const merged=[...loaded];
-          local.forEach(lu=>{if(!merged.find(ru=>ru.id===lu.id))merged.push(lu);});
-          users=merged;
-          localStorage.setItem('sys_users',JSON.stringify(users));
-        }
-      }catch(e){console.warn('Kullanıcı CSV hatası:',e);}
-      _tryLogin(id,pw,errEl);
-    }).catch(()=>_tryLogin(id,pw,errEl));
-  } else {
-    _tryLogin(id,pw,errEl);
+  errEl.textContent='Doğrulanıyor...';
+  errEl.style.cssText='display:block;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--accent)';
+
+  const allUsers = await getSheetUsers();
+  const found = allUsers.find(x=>(x.id||'').toLowerCase()===id.toLowerCase());
+
+  if(!found){
+    errEl.textContent='Kullanıcı bulunamadı. ('+id+')';
+    errEl.style.cssText='display:block';
+    document.getElementById('l-pw').value='';
+    return;
   }
+  if(found.pw !== pw){
+    errEl.textContent='Şifre hatalı.';
+    errEl.style.cssText='display:block';
+    document.getElementById('l-pw').value='';
+    return;
+  }
+  loginOK(found);
 }
 
 function _tryLogin(id,pw,errEl){
-  errEl.style.cssText='display:none';
   const allUsers=getUsers();
-  const idLower=id.toLowerCase().trim();
-  const pwPlain=String(pw||'');
-  // Sadece düz metin karşılaştırma — başka hiçbir encoding yok
-  const u=allUsers.find(x=>(x.id||'').toLowerCase().trim()===idLower && String(x.pw||'')===pwPlain);
+  const u=allUsers.find(x=>(x.id||'').toLowerCase()===id.toLowerCase()&&String(x.pw||'')===pw);
   if(!u){
-    const byId=allUsers.find(x=>(x.id||'').toLowerCase().trim()===idLower);
+    const byId=allUsers.find(x=>(x.id||'').toLowerCase()===id.toLowerCase());
     errEl.textContent=byId?'Şifre hatalı.':'Kullanıcı bulunamadı.';
     errEl.style.cssText='display:block';
     document.getElementById('l-pw').value='';
-    const rw=document.getElementById('l-reset-wrap');
-    if(rw)rw.style.display='block';
     return;
   }
   loginOK(u);
 }
 
+function parseUserRows(rows){
+  if(!rows||!rows.length)return[];
+  const normKey=k=>k.toString().trim().toLowerCase()
+    .replace(/\u011f/g,'g').replace(/\u00fc/g,'u').replace(/\u015f/g,'s')
+    .replace(/\u0131/g,'i').replace(/\u00f6/g,'o').replace(/\u00e7/g,'c')
+    .replace(/[^a-z0-9]/g,'');
+  return rows.map(r=>{
+    const norm={};
+    Object.keys(r).forEach(k=>{norm[normKey(k)]=(r[k]||'').toString().trim();});
+    const vals=Object.values(r).map(v=>(v||'').toString().trim());
+    const id  =norm['kullaniciid']||norm['id']||norm['userid']||norm['kullanici']||vals[0]||'';
+    const pw  =norm['sifre']||norm['password']||norm['pw']||norm['parola']||vals[1]||'';
+    const name=norm['ad']||norm['adsoyad']||norm['name']||norm['isim']||vals[2]||id;
+    const role=norm['rol']||norm['role']||norm['yetki']||vals[3]||'user';
+    if(!id.trim())return null;
+    return{id:id.trim(),pw:pw.trim(),name:(name||id).trim(),role:role.toLowerCase()==='admin'?'admin':'user'};
+  }).filter(Boolean);
+}
 function loginOK(u){
   currentUser=u;
-  localStorage.setItem('session',u.id);
+  // Session: şifresiz JSON objesi olarak sakla
+  localStorage.setItem('session', JSON.stringify({id:u.id, name:u.name, role:u.role}));
   users=getUsers();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-hdr').style.display='flex';
