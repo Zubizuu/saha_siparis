@@ -1063,59 +1063,38 @@ async function loginViaGetUsers(id, pw){
   }
 }
 
-async function doLogin(){
+function doLogin(){
   const errEl = document.getElementById('l-err');
-  const id    = document.getElementById('l-id').value.trim();
-  const pw    = document.getElementById('l-pw').value;
+  const id    = document.getElementById('l-id').value.trim().toLowerCase();
+  const pw    = document.getElementById('l-pw').value.trim();
   errEl.style.display = 'none';
 
   if(!id||!pw){
-    errEl.textContent='Kullanıcı ID ve şifre gerekli.';
+    errEl.textContent='Kullanici ID ve sifre gerekli.';
     errEl.style.display='block';
     return;
   }
 
-  // Yükleniyor
-  errEl.textContent='⏳ Giriş yapılıyor...';
-  errEl.style.cssText='display:block;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--accent)';
+  const tumKullanicilar = getUsers();
+  const bulunan = tumKullanicilar.find(x=>(x.id||'').toLowerCase()===id);
 
-  // 1. Adım: Apps Script login action dene
-  let result = await loginViaScript(id, pw);
-
-  // 2. Adım: login action yoksa getUsers ile dene
-  if(!result || result.hata){
-    console.log('[Login] login action yok, getUsers deneniyor...');
-    result = await loginViaGetUsers(id, pw);
-  }
-
-  // 3. Adım: İnternet yoksa local cache'e bak
-  if(!result){
-    const local = getUsers();
-    const u = local.find(x=>(x.id||'').toLowerCase()===id.toLowerCase());
-    if(u && String(u.pw||'')===pw){
-      result = {ok:true, user:{id:u.id, name:u.name, role:u.role}};
-    } else if(u){
-      result = {ok:false, error:'wrong_password'};
-    } else {
-      result = {ok:false, error:'no_connection'};
-    }
-  }
-
-  // Sonuç
-  if(result.ok && result.user){
-    loginOK({id:result.user.id, name:result.user.name, role:result.user.role, pw});
+  if(!bulunan){
+    errEl.textContent='Kullanici bulunamadi.';
+    errEl.style.cssText='display:block';
+    document.getElementById('l-pw').value='';
     return;
   }
 
-  const msgs = {
-    'wrong_password': 'Şifre hatalı.',
-    'not_found':      'Kullanıcı bulunamadı.',
-    'no_connection':  'Sunucuya bağlanılamadı ve kullanıcı local kayıtta yok.',
-  };
-  errEl.textContent = msgs[result.error] || ('Giriş başarısız: '+(result.error||result.hata||'Bilinmeyen hata'));
-  errEl.style.cssText = 'display:block';
-  document.getElementById('l-pw').value = '';
+  if(String(bulunan.pw||'').trim()!==pw){
+    errEl.textContent='Sifre hatali.';
+    errEl.style.cssText='display:block';
+    document.getElementById('l-pw').value='';
+    return;
+  }
+
+  loginOK({id:bulunan.id, name:bulunan.name, role:bulunan.role, pw});
 }
+
 
 function _tryLogin(id,pw,errEl){
   const u=getUsers().find(x=>(x.id||'').toLowerCase()===id.toLowerCase()&&String(x.pw||'')===pw);
@@ -2820,17 +2799,12 @@ function saveUser(){
   localStorage.setItem('sys_users',JSON.stringify(users));
   renderUserList();
   closeAddUser();
-  // Apps Script'e otomatik senkronize et
-  const scriptUrl=localStorage.getItem('gs_orders_url')||SCRIPT_URL;
-  pushUsersToScript(scriptUrl, true);
 }
 function delUser(id){
   if(!confirm(id+' silinsin mi?'))return;
   users=getUsers().filter(u=>u.id!==id);
   localStorage.setItem('sys_users',JSON.stringify(users));
   renderUserList();
-  const scriptUrl=localStorage.getItem('gs_orders_url')||SCRIPT_URL;
-  pushUsersToScript(scriptUrl, true);
 }
 
 // ═══════════════════════════════════════
