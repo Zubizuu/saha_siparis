@@ -2637,14 +2637,6 @@ function showPrice(kod){
   document.getElementById('pr-u').textContent='Birim: '+u.birim+' · KDV Hariç Liste Fiyatı';
   document.getElementById('pr-k').textContent='KDV %'+u.kdv+' Dahil: '+fmt(u.fiyat*(1+u.kdv/100));
 
-  const levels=[0,5,10,15,20,25,30];
-  document.getElementById('isk-rows').innerHTML=levels.map(pct=>{
-    const net=u.fiyat*(1-pct/100),kdvli=net*(1+u.kdv/100);
-    return`<div class="isk-row">
-      <span class="isk-pct">${pct===0?'Liste Fiyatı':'%'+pct+' İskonto'}</span>
-      <div class="isk-prices"><div class="isk-kdvli">${fmt(kdvli)}</div><div class="isk-net">KDV Hariç: ${fmt(net)}</div></div>
-    </div>`;
-  }).join('');
   document.getElementById('p-result').classList.add('show');
   // Store for ödeme iskontosu calc
   window._lastFiyatFiyat = u.fiyat;
