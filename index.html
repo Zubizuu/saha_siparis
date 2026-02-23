@@ -369,7 +369,7 @@ select option{background:var(--surface2)}
           </div>
         </div>
         <div class="r3" style="grid-template-columns:1fr 1fr">
-          <div><div class="oi-lbl">Miktar</div><input type="number" id="uf-m" value="1" min="0.001" step="any" inputmode="decimal" oninput="updateUfNetPrice()"></div>
+          <div><div class="oi-lbl" id="uf-m-lbl">Miktar</div><input type="number" id="uf-m" value="1" min="1" step="1" inputmode="decimal" oninput="clampToMinMiktar();updateUfNetPrice()"></div>
           <div><div class="oi-lbl">İsk1 %</div><input type="number" id="uf-i" value="0" min="0" max="100" inputmode="decimal" oninput="updateUfNetPrice()"></div>
         </div>
         <input type="hidden" id="uf-k" value="20">
@@ -1505,16 +1505,20 @@ function csvSplitLine(line){
 
 function csvRowToStok(row){
   const k=Object.keys(row);
+  // Sütun sırası: A=Kod(0), B=PratikKod(1), C=StokKod(2), D=Barkod(3), E=Birim(4), F=Ad(5), G=Fiyat(6), H=KDV(7), I=StokMiktarı(8), J=Kategori(9)
+  const kdvVal=row.KDV||row.Kdv||row['KDV %']||row[k[7]];
   return{
     kod:      s(row.Kod||row.UrunKodu||row['Ürün Kodu']||row[k[0]]),
     pratikKod:s(row.PratikKod||row['Pratik Kod']||row.pratikKod||row[k[1]]),
-    barkod:   s(row.Barkod||row.barkod||row[k[2]]),
-    ad:       s(row.Ad||row.UrunAdi||row['Ürün Adı']||row[k[3]]),
+    stokKod:  s(row.StokKodu||row['Stok Kodu']||row.StokKod||row[k[2]]),
+    barkod:   s(row.Barkod||row.barkod||row[k[3]]),
     birim:    s(row.Birim||row[k[4]])||'Adet',
-    fiyat:    n(row.Fiyat||row.BirimFiyat||row[k[5]]),
-    kdv:      n(row.KDV||row.Kdv||row[k[6]])||20,
-    stokKod:  s(row.StokKodu||row['Stok Kodu']||row.stokKod||row[k[0]]),
-    kategori: s(row.Kategori||row.kategori||row['Kategori']||row[k[7]])||'',
+    ad:       s(row.Ad||row.UrunAdi||row['Ürün Adı']||row[k[5]]),
+    fiyat:    n(row.Fiyat||row.BirimFiyat||row[k[6]]),
+    kdv:      kdvVal!=null&&kdvVal!==''?n(kdvVal):20,
+    stokMiktar: n(row.StokMiktari||row['Stok Miktarı']||row[k[8]]),
+    kategori: s(row.Kategori||row.kategori||row['Kategori']||row[k[9]])||'',
+    minMiktar: n(row['Min. Satış Miktarı']||row.MinSatisMiktari||row.minMiktar||row[k[10]])||1,
   };
 }
 
@@ -1823,17 +1827,20 @@ function loadStok(ev){
       const json=XLSX.utils.sheet_to_json(ws,{defval:''});
       stokData=json.map(row=>{
         const k=Object.keys(row);
-        // Try named columns first, fallback to positional
+        // Sütun sırası: A=Kod(0), B=PratikKod(1), C=StokKod(2), D=Barkod(3), E=Birim(4), F=Ad(5), G=Fiyat(6), H=KDV(7), I=StokMiktarı(8), J=Kategori(9)
+        const kdvVal=row.KDV||row.Kdv||row['KDV %']||row[k[7]];
         return{
-          kod:   s(row.Kod||row.UrunKodu||row['Ürün Kodu']||row[k[0]]),
-          pratikKod: s(row.PratikKod||row['Pratik Kod']||row.pratikKod||row[k[1]]),
-          barkod:s(row.Barkod||row.barkod||row[k[2]]),
-          ad:    s(row.Ad||row.UrunAdi||row['Ürün Adı']||row[k[3]]),
-          birim: s(row.Birim||row[k[4]])||'Adet',
-          fiyat: n(row.Fiyat||row.BirimFiyat||row[k[5]]),
-          kdv:   n(row.KDV||row.Kdv||row[k[6]])||20,
-          // stokKodu — sütun adı StokKodu olabilir
-          stokKod: s(row.StokKodu||row['Stok Kodu']||row.stokKod||row[k[0]]),
+          kod:      s(row.Kod||row.UrunKodu||row['Ürün Kodu']||row[k[0]]),
+          pratikKod:s(row.PratikKod||row['Pratik Kod']||row.pratikKod||row[k[1]]),
+          stokKod:  s(row.StokKodu||row['Stok Kodu']||row.StokKod||row[k[2]]),
+          barkod:   s(row.Barkod||row.barkod||row[k[3]]),
+          birim:    s(row.Birim||row[k[4]])||'Adet',
+          ad:       s(row.Ad||row.UrunAdi||row['Ürün Adı']||row[k[5]]),
+          fiyat:    n(row.Fiyat||row.BirimFiyat||row[k[6]]),
+          kdv:      kdvVal!=null&&kdvVal!==''?n(kdvVal):20,
+          stokMiktar: n(row.StokMiktari||row['Stok Miktarı']||row[k[8]]),
+          kategori: s(row.Kategori||row.kategori||row[k[9]])||'',
+          minMiktar: n(row['Min. Satış Miktarı']||row.MinSatisMiktari||row.minMiktar||row[k[10]])||1,
         };
       }).filter(r=>r.kod||r.ad);
       localStorage.setItem('stokData',JSON.stringify(stokData));
@@ -2006,7 +2013,14 @@ function pickUrun(kod){
   document.getElementById('uf-i').value=selectedCari?selectedCari.iskonto:0;
   document.getElementById('uf-i2').value=0;
   document.getElementById('uf-k').value=selectedUrun.kdv;
-  document.getElementById('uf-m').value=1;
+  // Min satış miktarı
+  const minM=selectedUrun.minMiktar&&selectedUrun.minMiktar>0?selectedUrun.minMiktar:1;
+  const mInput=document.getElementById('uf-m');
+  mInput.min=minM;
+  mInput.step=minM;
+  mInput.value=minM;
+  const mLbl=document.getElementById('uf-m-lbl');
+  if(mLbl)mLbl.innerHTML=minM>1?`Miktar <span style="color:var(--accent);font-size:0.6rem">(Min: ${minM} · Kat: ${minM})</span>`:'Miktar';
   document.getElementById('u-form').style.display='block';
   // Bedelsiz alanı sıfırla
   const bChk=document.getElementById('uf-bedelsiz-chk');
@@ -2028,6 +2042,17 @@ function updateUfNetPrice(){
 }
 // Attach live update to iskonto inputs
 document.addEventListener('input',e=>{if(e.target&&(e.target.id==='uf-i'||e.target.id==='uf-i2'))updateUfNetPrice();});
+function clampToMinMiktar(){
+  if(!selectedUrun)return;
+  const minM=selectedUrun.minMiktar&&selectedUrun.minMiktar>0?selectedUrun.minMiktar:1;
+  if(minM<=1)return;
+  const inp=document.getElementById('uf-m');
+  let val=parseFloat(inp.value)||minM;
+  // Kata yuvarla
+  val=Math.round(val/minM)*minM;
+  if(val<minM)val=minM;
+  inp.value=val;
+}
 function cancelUrun(){selectedUrun=null;document.getElementById('u-form').style.display='none';document.getElementById('u-in').value='';}
 
 // ═══════════════════════════════════════
@@ -2035,7 +2060,14 @@ function cancelUrun(){selectedUrun=null;document.getElementById('u-form').style.
 // ═══════════════════════════════════════
 function addToOrder(){
   if(!selectedUrun)return;
-  const m=parseFloat(document.getElementById('uf-m').value)||1;
+  const minM=selectedUrun.minMiktar&&selectedUrun.minMiktar>0?selectedUrun.minMiktar:1;
+  let m=parseFloat(document.getElementById('uf-m').value)||minM;
+  // Kata yuvarla ve min kontrol
+  if(minM>1){
+    m=Math.round(m/minM)*minM;
+    if(m<minM)m=minM;
+  }
+  if(m<=0){alert('Geçerli bir miktar girin!');return;}
   const i=parseFloat(document.getElementById('uf-i').value)||0;
   const i2=parseFloat(document.getElementById('uf-i2').value)||0;
   const k=parseFloat(document.getElementById('uf-k').value)||20;
@@ -3096,7 +3128,7 @@ function renderStokList(){
         <div style="flex:1;min-width:0">
           <div style="font-family:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:0.7rem;color:var(--accent);margin-bottom:2px">${u.kod}${u.pratikKod?' · '+u.pratikKod:''}${u.kategori?` <span style="background:rgba(245,166,35,.15);color:var(--accent);border-radius:4px;padding:1px 5px;font-size:0.65rem">${u.kategori}</span>`:''}</div>
           <div style="font-weight:600;font-size:0.88rem;margin-bottom:3px;line-height:1.3">${u.ad}</div>
-          <div style="font-size:0.72rem;color:var(--muted)">${u.birim||''} · KDV %${u.kdv||20}${u.barkod?' · Barkod: '+u.barkod:''}</div>
+          <div style="font-size:0.72rem;color:var(--muted)">${u.birim||''} · KDV %${u.kdv!=null?u.kdv:20}${u.minMiktar&&u.minMiktar>1?` · <span style="color:var(--accent)">Min: ${u.minMiktar}</span>`:''}${u.barkod?' · Barkod: '+u.barkod:''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;margin-left:10px">
           <div style="font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:1rem;font-weight:800;color:#ffffff">${u.fiyat?fmtTL(u.fiyat):'—'}</div>
