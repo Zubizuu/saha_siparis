@@ -1287,7 +1287,7 @@ function goPage(n,btn){
   const overlay = document.getElementById('page-transition');
 
   // Overlay'i göster
-  overlay.style.display='';
+  overlay.style.display='flex';
   overlay.classList.remove('pt-hide');
   overlay.classList.add('pt-show');
 
@@ -1298,11 +1298,13 @@ function goPage(n,btn){
     nextPage.classList.add('active');
     document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    if(n==='gecmis'){renderHistory();updateStats();}
-    if(n==='ayarlar'){loadSheetsSettings();}
-    if(n==='stoklar'){renderStokList();}
-    if(n==='cariler'){renderCariList();}
-    if(n==='siparis'){initSiparisFilters();}
+    try{
+      if(n==='gecmis'){renderHistory();updateStats();}
+      if(n==='ayarlar'){loadSheetsSettings();}
+      if(n==='stoklar'){renderStokList();}
+      if(n==='cariler'){renderCariList();}
+      if(n==='siparis'){initSiparisFilters();}
+    }catch(e){console.warn('goPage callback error:',e);}
 
     // Overlay'i gizle
     overlay.classList.add('pt-hide');
