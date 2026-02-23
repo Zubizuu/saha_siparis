@@ -483,12 +483,8 @@ select option{background:var(--surface2)}
       <span class="pr-kdv-badge" id="pr-k"></span>
       <div id="f-odeme-isk-row" style="display:none;margin:10px 0;padding:10px 12px;background:rgba(var(--accent-rgb,99,102,241),.08);border:1px solid var(--accent-border,rgba(99,102,241,.25));border-radius:var(--radius-sm)">
         <div style="font-size:0.72rem;color:var(--muted);margin-bottom:4px" id="f-odeme-isk-label">Ödeme İskontosu</div>
-        <div style="font-size:1.1rem;font-weight:700;color:var(--accent)" id="f-odeme-isk-price"></div>
-        <div style="font-size:0.7rem;color:var(--muted)">KDV Hariç · Ödeme tipine göre</div>
-      </div>
-      <div class="isk-table">
-        <div class="card-title" style="margin:14px 0 8px;text-align:left">İskontolu Fiyatlar</div>
-        <div id="isk-rows"></div>
+        <div style="font-size:1.4rem;font-weight:800;color:var(--accent)" id="f-odeme-isk-price"></div>
+        <div style="font-size:0.7rem;color:var(--muted)" id="f-odeme-isk-kdv"></div>
       </div>
       <button class="btn btn-secondary btn-sm mt12" onclick="clearFiyat()">🔍 Yeni Sorgula</button>
     </div>
@@ -741,18 +737,18 @@ select option{background:var(--surface2)}
     </div>
 
     <!-- ÖDEME TİPİ İSKONTOLARI -->
-    <div class=\"card\" id=\"odeme-iskonto-card\">
-      <div class=\"card-title\">💳 Ödeme Tipi İskontoları</div>
-      <div style=\"font-size:0.76rem;color:var(--muted);margin-bottom:12px\">
+    <div class="card" id="odeme-iskonto-card">
+      <div class="card-title">💳 Ödeme Tipi İskontoları</div>
+      <div style="font-size:0.76rem;color:var(--muted);margin-bottom:12px">
         Her ödeme tipine otomatik uygulanacak iskonto oranını girin. Sipariş oluştururken ödeme şekli seçildiğinde iskonto otomatik atanır.
       </div>
-      <div style=\"display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px\">
-        <div class=\"fg\" style=\"margin:0\"><label>VADELİ %</label><input type=\"number\" id=\"oi-vadeli\" value=\"0\" min=\"0\" max=\"100\" step=\"0.1\" placeholder=\"0\"></div>
-        <div class=\"fg\" style=\"margin:0\"><label>NAKİT %</label><input type=\"number\" id=\"oi-nakit\" value=\"0\" min=\"0\" max=\"100\" step=\"0.1\" placeholder=\"0\"></div>
-        <div class=\"fg\" style=\"margin:0\"><label>KREDİ KARTI %</label><input type=\"number\" id=\"oi-kredi\" value=\"0\" min=\"0\" max=\"100\" step=\"0.1\" placeholder=\"0\"></div>
-        <div class=\"fg\" style=\"margin:0\"><label>TAKSİTLİ KREDİ KARTI %</label><input type=\"number\" id=\"oi-taksit\" value=\"0\" min=\"0\" max=\"100\" step=\"0.1\" placeholder=\"0\"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div class="fg" style="margin:0"><label>VADELİ %</label><input type="number" id="oi-vadeli" value="0" min="0" max="100" step="0.1" placeholder="0"></div>
+        <div class="fg" style="margin:0"><label>NAKİT %</label><input type="number" id="oi-nakit" value="0" min="0" max="100" step="0.1" placeholder="0"></div>
+        <div class="fg" style="margin:0"><label>KREDİ KARTI %</label><input type="number" id="oi-kredi" value="0" min="0" max="100" step="0.1" placeholder="0"></div>
+        <div class="fg" style="margin:0"><label>TAKSİTLİ KREDİ KARTI %</label><input type="number" id="oi-taksit" value="0" min="0" max="100" step="0.1" placeholder="0"></div>
       </div>
-      <button class=\"btn btn-primary btn-sm\" onclick=\"saveOdemeIskontoları()\">💾 Kaydet</button>
+      <button class="btn btn-primary btn-sm" onclick="saveOdemeIskontoları()">💾 Kaydet</button>
     </div>
 
     <!-- MANUEL YÜKLEME (gizli, isteğe bağlı) -->
@@ -2652,6 +2648,7 @@ function showPrice(kod){
   document.getElementById('p-result').classList.add('show');
   // Store for ödeme iskontosu calc
   window._lastFiyatFiyat = u.fiyat;
+  window._lastFiyatKdv = u.kdv||0;
   // Reset ödeme tipi badge
   const fot = document.getElementById('f-odeme-tipi');
   if(fot && fot.value) updateFiyatOdemeIsk();
@@ -3158,18 +3155,19 @@ function updateFiyatOdemeIsk(){
   if(!tipi||!row){ if(row)row.style.display='none'; if(badge)badge.style.display='none'; return; }
   const isk = getOdemeIsk(tipi);
   if(badge){ if(isk>0){badge.textContent='%'+isk+' iskonto';badge.style.display='block';}else{badge.style.display='none';} }
-  // Compute discounted price from current selected product
-  const prEl = document.getElementById('pr-p');
-  if(!prEl||!prEl.textContent||!row){ if(row)row.style.display='none'; return; }
-  // Get base price from global selectedFiyat or window._lastFiyat
   const base = window._lastFiyatFiyat;
+  const kdv = window._lastFiyatKdv||0;
   if(!base){ if(row)row.style.display='none'; return; }
+  if(isk<=0){ row.style.display='none'; return; }
   const net = base*(1-isk/100);
+  const kdvli = net*(1+kdv/100);
   const lbl = document.getElementById('f-odeme-isk-label');
   const pEl = document.getElementById('f-odeme-isk-price');
+  const kdvEl = document.getElementById('f-odeme-isk-kdv');
   if(lbl) lbl.textContent = tipi+' – %'+isk+' Ödeme İskontosu';
   if(pEl) pEl.textContent = net.toLocaleString('tr-TR',{minimumFractionDigits:4,maximumFractionDigits:4})+' ₺';
-  if(isk>0) row.style.display='block'; else row.style.display='none';
+  if(kdvEl) kdvEl.textContent = 'KDV Hariç · KDV %'+kdv+' Dahil: '+kdvli.toLocaleString('tr-TR',{minimumFractionDigits:4,maximumFractionDigits:4})+' ₺';
+  row.style.display='block';
 }
 
 function saveFirma(){firma={ad:document.getElementById('fa').value,adres:document.getElementById('fb').value,tel:document.getElementById('fc').value};localStorage.setItem('firmaData',JSON.stringify(firma));alert('✅ Kaydedildi!');}
