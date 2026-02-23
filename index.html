@@ -41,10 +41,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue'
 #page-transition{position:fixed;inset:0;background:rgba(13,13,20,.92);backdrop-filter:blur(6px);z-index:8000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px}
 #page-transition.pt-show{display:flex;animation:overlayFadeIn .15s ease forwards}
 #page-transition.pt-hide{animation:overlayFadeOut .2s ease forwards}
-.pt-globe-wrap{position:relative;width:72px;height:72px;display:flex;align-items:center;justify-content:center}
-.pt-globe-wrap::before{content:'';position:absolute;inset:0;border-radius:50%;border:3px solid rgba(255,255,255,0.15);border-top:3px solid #ffffff;animation:ptSpin 0.9s linear infinite}
+.pt-globe-wrap{position:relative;width:80px;height:80px;display:flex;align-items:center;justify-content:center}
+.pt-globe-wrap::before{content:'';position:absolute;top:-4px;left:-4px;right:-4px;bottom:-4px;border-radius:50%;border:3px solid rgba(255,255,255,0.18);border-top:3px solid #ffffff;border-right:3px solid rgba(255,255,255,0.6);animation:ptSpin 1s linear infinite;z-index:1}
+.pt-globe-wrap::after{content:'';position:absolute;top:4px;left:4px;right:4px;bottom:4px;border-radius:50%;border:2px solid rgba(255,255,255,0.08);border-bottom:2px solid rgba(255,255,255,0.35);animation:ptSpin 1.8s linear infinite reverse;z-index:1}
 @keyframes ptSpin{to{transform:rotate(360deg)}}
-.pt-globe{width:44px;height:44px;object-fit:contain;display:block}
+.pt-globe{width:52px;height:52px;object-fit:contain;display:block;position:relative;z-index:2}
 .pt-label{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',Arial,sans-serif;font-size:0.7rem;font-weight:700;color:var(--accent);letter-spacing:3px;text-transform:uppercase}
 .pt-dots{display:flex;gap:5px;margin-top:2px}
 .pt-dots span{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:ptDots 1.2s ease-in-out infinite}
@@ -1286,6 +1287,7 @@ function goPage(n,btn){
   const overlay = document.getElementById('page-transition');
 
   // Overlay'i göster
+  overlay.style.display='';
   overlay.classList.remove('pt-hide');
   overlay.classList.add('pt-show');
 
@@ -1304,7 +1306,7 @@ function goPage(n,btn){
 
     // Overlay'i gizle
     overlay.classList.add('pt-hide');
-    setTimeout(()=>{ overlay.classList.remove('pt-show','pt-hide'); }, 220);
+    setTimeout(()=>{ overlay.classList.remove('pt-show','pt-hide'); overlay.style.display='none'; }, 220);
   }, 420);
 }
 
