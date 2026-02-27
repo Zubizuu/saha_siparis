@@ -1120,10 +1120,13 @@ async function loginViaGetUsers(id, pw){
       }catch(e2){ data = null; }
     }
     if(!data || !data.ok || !data.users || !data.users.length) return null;
-    // Cache'e kaydet
-    localStorage.setItem('sys_users', JSON.stringify(data.users));
-    users = data.users;
-    const u = data.users.find(x=>(x.id||'').toLowerCase()===id.toLowerCase());
+    // Merge: Script'ten gelen kullanıcıları local'e ekle ama local'deki silinmesin
+    const localUsers = (() => { try{ const s=localStorage.getItem('sys_users'); if(s){const p=JSON.parse(s);if(p&&p.length)return p;} }catch(e){} return []; })();
+    const merged = [...localUsers];
+    data.users.forEach(su=>{ if(!merged.find(lu=>(lu.id||'').toLowerCase()===(su.id||'').toLowerCase())) merged.push(su); });
+    localStorage.setItem('sys_users', JSON.stringify(merged));
+    users = merged;
+    const u = merged.find(x=>(x.id||'').toLowerCase()===id.toLowerCase());
     if(!u) return {ok:false, error:'not_found'};
     if(String(u.pw||'') !== pw) return {ok:false, error:'wrong_password'};
     return {ok:true, user:{id:u.id, name:u.name, role:u.role}};
@@ -1253,10 +1256,10 @@ function saveScriptUrl(){
       // Kullanıcıları hemen çek
       fetchUsersFromScript(url).then(u=>{
         if(u&&u.length){
-          // Merge: local kullanıcıları silme
+          // Merge: local öncelikli, script'ten sadece eksik olanları ekle
           const local=getUsers();
-          const merged=[...u];
-          local.forEach(lu=>{if(!merged.find(ru=>ru.id===lu.id))merged.push(lu);});
+          const merged=[...local];
+          u.forEach(su=>{if(!merged.find(lu=>(lu.id||'').toLowerCase()===(su.id||'').toLowerCase()))merged.push(su);});
           users=merged;
           localStorage.setItem('sys_users',JSON.stringify(users));
           renderUserList();
@@ -2938,12 +2941,17 @@ function saveUser(){
   localStorage.setItem('sys_users',JSON.stringify(users));
   renderUserList();
   closeAddUser();
+  // Script'e push et (varsa)
+  const su=localStorage.getItem('gs_orders_url')||'';
+  if(su) pushUsersToScript(su, false);
 }
 function delUser(id){
   if(!confirm(id+' silinsin mi?'))return;
   users=getUsers().filter(u=>u.id!==id);
   localStorage.setItem('sys_users',JSON.stringify(users));
   renderUserList();
+  const su2=localStorage.getItem('gs_orders_url')||'';
+  if(su2) pushUsersToScript(su2, false);
 }
 
 // ═══════════════════════════════════════
