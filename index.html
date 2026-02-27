@@ -295,6 +295,40 @@ select option{background:var(--surface2)}
     <div class="lf"><label>Kullanıcı ID</label><input type="text" id="l-id" placeholder="Kullanıcı adınız..." autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <div class="lf"><label>Şifre</label><input type="password" id="l-pw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button class="btn-login" onclick="doLogin()">Giriş Yap →</button>
+    <button onclick="openForgotPw()" style="margin-top:12px;background:none;border:none;color:rgba(255,255,255,0.45);font-size:0.78rem;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:5px;justify-content:center;width:100%">🔑 Şifremi unuttum</button>
+    <button onclick="if(confirm('localStorage sıfırlansın mı?')){localStorage.clear();location.reload();}" style="margin-top:4px;background:none;border:none;color:rgba(255,255,255,0.2);font-size:0.68rem;cursor:pointer;text-decoration:underline">⚠️ Veri sıfırla (sorun varsa)</button>
+  </div>
+</div>
+
+<!-- ═══ ŞİFREMİ UNUTTUM MODAL ═══ -->
+<div id="forgot-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:28px 24px;width:100%;max-width:360px;box-shadow:0 24px 60px rgba(0,0,0,.6)">
+    <div style="font-size:1.1rem;font-weight:700;margin-bottom:6px;text-align:center">🔑 Şifre Sıfırlama</div>
+    <div style="font-size:0.78rem;color:rgba(255,255,255,.5);margin-bottom:18px;text-align:center">Admin kodunu girerek şifrenizi sıfırlayın</div>
+
+    <div id="forgot-step1">
+      <div style="margin-bottom:12px">
+        <label style="font-size:0.78rem;color:rgba(255,255,255,.6);display:block;margin-bottom:5px">Kullanıcı ID</label>
+        <input type="text" id="fp-id" placeholder="Kullanıcı adınız..." autocapitalize="none" autocorrect="off"
+          style="width:100%;box-sizing:border-box;padding:10px 13px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:0.9rem;outline:none">
+      </div>
+      <div style="margin-bottom:18px">
+        <label style="font-size:0.78rem;color:rgba(255,255,255,.6);display:block;margin-bottom:5px">Admin Kodu</label>
+        <input type="password" id="fp-code" placeholder="••••" onkeydown="if(event.key==='Enter')doForgotReset()"
+          style="width:100%;box-sizing:border-box;padding:10px 13px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-size:0.9rem;outline:none">
+      </div>
+      <div id="fp-err" style="display:none;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:8px;padding:8px 12px;font-size:0.78rem;margin-bottom:14px;text-align:center"></div>
+      <button onclick="doForgotReset()" style="width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#818cf8);border:none;border-radius:11px;color:#fff;font-size:0.9rem;font-weight:700;cursor:pointer">Şifreyi Sıfırla</button>
+    </div>
+
+    <div id="forgot-step2" style="display:none;text-align:center">
+      <div style="font-size:2.5rem;margin-bottom:12px">✅</div>
+      <div style="font-size:1rem;font-weight:700;margin-bottom:8px">Şifreniz Sıfırlandı!</div>
+      <div style="font-size:0.82rem;color:rgba(255,255,255,.6);margin-bottom:20px">Yeni şifreniz: <strong style="color:#fff;font-size:1rem">1111</strong></div>
+      <button onclick="closeForgotPw()" style="width:100%;padding:11px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:11px;color:#fff;font-size:0.88rem;font-weight:600;cursor:pointer">Giriş Ekranına Dön</button>
+    </div>
+
+    <button onclick="closeForgotPw()" style="width:100%;margin-top:12px;padding:9px;background:none;border:none;color:rgba(255,255,255,.3);font-size:0.75rem;cursor:pointer">İptal</button>
   </div>
 </div>
 
@@ -962,9 +996,9 @@ let currentPDFDoc=null, currentPDFBlob=null;
   const DEFAULT=[
     {id:'umut',    pw:'1111',   name:'Umut',    role:'user'},
     {id:'satis1',  pw:'1111',   name:'Satış 1', role:'user'},
-    {id:'burak',   pw:'0106',   name:'Burak',   role:'admin'},
-    {id:'batuhan', pw:'baba44', name:'Batuhan', role:'admin'},
-    {id:'admin',   pw:'3535',   name:'Yönetici',role:'admin'},
+    {id:'burak',   pw:'1111',   name:'Burak',   role:'admin'},
+    {id:'batuhan', pw:'1111',   name:'Batuhan', role:'admin'},
+    {id:'admin',   pw:'1111',   name:'Yönetici',role:'admin'},
   ];
 
   const su=localStorage.getItem('sys_users');
@@ -1038,6 +1072,45 @@ let currentPDFDoc=null, currentPDFBlob=null;
 var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAbxY8d3kvRVQt-A4oRFVcGodc694bCu_vo2fq5i9o0bfkUcRptEWRA3oa22rznWaMtQ/exec';
 
 function hashPw(pw){ return String(pw||'').trim(); }
+
+function openForgotPw(){
+  document.getElementById('fp-id').value='';
+  document.getElementById('fp-code').value='';
+  document.getElementById('fp-err').style.display='none';
+  document.getElementById('forgot-step1').style.display='block';
+  document.getElementById('forgot-step2').style.display='none';
+  const m=document.getElementById('forgot-modal');
+  m.style.display='flex';
+}
+function closeForgotPw(){
+  document.getElementById('forgot-modal').style.display='none';
+}
+function doForgotReset(){
+  const id = document.getElementById('fp-id').value.trim().toLowerCase();
+  const code = document.getElementById('fp-code').value.trim();
+  const errEl = document.getElementById('fp-err');
+  errEl.style.display='none';
+
+  const ADMIN_CODE = '8554';
+
+  if(!id){ errEl.textContent='Kullanıcı ID boş olamaz.'; errEl.style.display='block'; return; }
+  if(code !== ADMIN_CODE){ errEl.textContent='Admin kodu hatalı.'; errEl.style.display='block'; return; }
+
+  const allUsers = getUsers();
+  const u = allUsers.find(x=>(x.id||'').toLowerCase()===id);
+  if(!u){ errEl.textContent='Bu kullanıcı bulunamadı.'; errEl.style.display='block'; return; }
+
+  u.pw = '1111';
+  localStorage.setItem('sys_users', JSON.stringify(allUsers));
+  users = allUsers;
+
+  document.getElementById('forgot-step1').style.display='none';
+  document.getElementById('forgot-step2').style.display='block';
+
+  // Login formunu hazırla
+  const loginId = document.getElementById('l-id');
+  if(loginId) loginId.value = u.id;
+}
 
 function resetAppData(){
   if(!confirm('Oturum sıfırlanacak. Devam?'))return;
