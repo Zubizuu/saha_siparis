@@ -1785,7 +1785,11 @@ async function testAndSyncSheet(type, showAlert=true){
         setStatus(false,`Kullanıcı yüklenemedi. Sütunlar: ${rows&&rows[0]?Object.keys(rows[0]).join(', '):'(boş)'} — Beklenen: KullaniciID | Sifre | Ad | Rol`);
         return;
       }
-      users=loaded;
+      // Merge: local öncelikli — Sheets'ten sadece eksik olanları ekle
+      const localUsers = getUsers();
+      const merged = [...localUsers];
+      loaded.forEach(lu=>{ if(!merged.find(mu=>(mu.id||'').toLowerCase()===(lu.id||'').toLowerCase())) merged.push(lu); });
+      users = merged;
       localStorage.setItem('sys_users',JSON.stringify(users));
       renderUserList();
       setStatus(true,`${loaded.length} kullanıcı yüklendi`);
@@ -3000,7 +3004,7 @@ function openAddUser(){editingUid=null;document.getElementById('mu-id').value=''
 function editUser(id){const u=users.find(x=>x.id===id);if(!u)return;editingUid=id;document.getElementById('mu-id').value=u.id;document.getElementById('mu-id').disabled=true;document.getElementById('mu-pw').value='';document.getElementById('mu-n').value=u.name;document.getElementById('mu-r').value=u.role;document.getElementById('u-modal').classList.add('open');}
 function closeAddUser(){document.getElementById('u-modal').classList.remove('open');}
 function saveUser(){
-  const id=document.getElementById('mu-id').value.trim(),pw=document.getElementById('mu-pw').value,nm=document.getElementById('mu-n').value.trim(),role=document.getElementById('mu-r').value;
+  const id=document.getElementById('mu-id').value.trim().toLowerCase(),pw=document.getElementById('mu-pw').value.trim(),nm=document.getElementById('mu-n').value.trim(),role=document.getElementById('mu-r').value;
   if(!id||!nm){alert('ID ve Ad zorunlu!');return;}
   users=getUsers();
   if(editingUid){
